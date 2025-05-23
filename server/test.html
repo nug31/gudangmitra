@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>API Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        line-height: 1.6;
+      }
+      h1 {
+        color: #333;
+      }
+      button {
+        padding: 10px 15px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-bottom: 20px;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      pre {
+        background-color: #f5f5f5;
+        padding: 15px;
+        border-radius: 5px;
+        overflow-x: auto;
+      }
+      .request-card {
+        border: 1px solid #ddd;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+      }
+      .request-title {
+        font-weight: bold;
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+      .request-details {
+        margin-bottom: 10px;
+      }
+      .request-status {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 3px;
+        font-size: 14px;
+        margin-left: 10px;
+      }
+      .status-pending {
+        background-color: #fff3cd;
+        color: #856404;
+      }
+      .status-approved {
+        background-color: #d4edda;
+        color: #155724;
+      }
+      .status-rejected {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>API Test</h1>
+
+    <button id="testConnection">Test Connection</button>
+    <button id="getItems">Get Items</button>
+    <button id="fetchRequests">Fetch Requests</button>
+
+    <h2>Response:</h2>
+    <pre id="response">Click a button to test the API</pre>
+
+    <div id="results"></div>
+
+    <script>
+      document
+        .getElementById("testConnection")
+        .addEventListener("click", async () => {
+          try {
+            const response = await fetch("http://localhost:3001/api/test-db");
+            const data = await response.json();
+            document.getElementById("response").textContent = JSON.stringify(
+              data,
+              null,
+              2
+            );
+          } catch (error) {
+            document.getElementById("response").textContent =
+              "Error: " + error.message;
+          }
+        });
+
+      document
+        .getElementById("getItems")
+        .addEventListener("click", async () => {
+          try {
+            const response = await fetch("http://localhost:3001/api/items");
+            const data = await response.json();
+            document.getElementById("response").textContent = JSON.stringify(
+              data,
+              null,
+              2
+            );
+          } catch (error) {
+            document.getElementById("response").textContent =
+              "Error: " + error.message;
+          }
+        });
+
+      document
+        .getElementById("fetchRequests")
+        .addEventListener("click", async () => {
+          const resultsDiv = document.getElementById("results");
+          resultsDiv.innerHTML = "Loading...";
+
+          try {
+            const response = await fetch("http://localhost:3001/api/requests");
+            console.log("Response status:", response.status);
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log("Received data:", data);
+            document.getElementById("response").textContent = JSON.stringify(
+              data,
+              null,
+              2
+            );
+
+            if (data.length === 0) {
+              resultsDiv.innerHTML = "<p>No requests found.</p>";
+              return;
+            }
+
+            let html = `<h2>Found ${data.length} requests</h2>`;
+
+            data.forEach((request) => {
+              const firstItem =
+                request.items && request.items.length > 0
+                  ? request.items[0]
+                  : null;
+              const itemName = firstItem
+                ? firstItem.name
+                : request.project_name;
+
+              let statusClass = "";
+              switch (request.status) {
+                case "pending":
+                  statusClass = "status-pending";
+                  break;
+                case "approved":
+                  statusClass = "status-approved";
+                  break;
+                case "denied":
+                case "rejected":
+                  statusClass = "status-rejected";
+                  break;
+              }
+
+              html += `
+                        <div class="request-card">
+                            <div class="request-title">
+                                ${itemName}
+                                <span class="request-status ${statusClass}">${
+                request.status
+              }</span>
+                            </div>
+                            <div class="request-details">
+                                <strong>ID:</strong> ${request.id}<br>
+                                <strong>Requester:</strong> ${
+                                  request.requester_name || "Unknown"
+                                } (${request.requester_id})<br>
+                                <strong>Email:</strong> ${
+                                  request.requester_email || "No email"
+                                }<br>
+                                <strong>Priority:</strong> ${
+                                  request.priority
+                                }<br>
+                                <strong>Created:</strong> ${new Date(
+                                  request.created_at
+                                ).toLocaleString()}<br>
+                                <strong>Reason:</strong> ${
+                                  request.reason || "No reason provided"
+                                }
+                            </div>
+                            ${
+                              request.items && request.items.length > 0
+                                ? `
+                                <div>
+                                    <strong>Items:</strong>
+                                    <ul>
+                                        ${request.items
+                                          .map(
+                                            (item) => `
+                                            <li>${item.name} (Quantity: ${item.quantity})</li>
+                                        `
+                                          )
+                                          .join("")}
+                                    </ul>
+                                </div>
+                            `
+                                : ""
+                            }
+                        </div>
+                    `;
+            });
+
+            resultsDiv.innerHTML = html;
+          } catch (error) {
+            console.error("Error fetching requests:", error);
+            resultsDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+          }
+        });
+    </script>
+  </body>
+</html>

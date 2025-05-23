@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Login</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 20px;
+      background-color: #f9fafb;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #111827;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #4338ca;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .error {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #fee2e2;
+      color: #b91c1c;
+      border-radius: 5px;
+    }
+    .success {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #ecfdf5;
+      color: #065f46;
+      border-radius: 5px;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background-color: #f3f4f6;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Test Login</h1>
+    <button id="testButton">Test Login</button>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    document.getElementById('testButton').addEventListener('click', async function() {
+      const button = this;
+      const resultDiv = document.getElementById('result');
+      
+      // Disable button and show loading state
+      button.disabled = true;
+      button.textContent = 'Testing...';
+      resultDiv.innerHTML = '';
+      
+      try {
+        console.log('Testing login...');
+        
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: 'manager@gudangmitra.com',
+            password: 'password123',
+          }),
+        });
+        
+        console.log(`Response status: ${response.status}`);
+        
+        // Get the response text
+        const responseText = await response.text();
+        console.log(`Response text: ${responseText}`);
+        
+        // Try to parse as JSON
+        try {
+          const data = JSON.parse(responseText);
+          console.log('Parsed JSON response:', data);
+          
+          resultDiv.innerHTML = `
+            <div class="success">
+              <h2>Success!</h2>
+              <pre>${JSON.stringify(data, null, 2)}</pre>
+            </div>
+          `;
+        } catch (e) {
+          console.error('Failed to parse JSON:', e);
+          
+          resultDiv.innerHTML = `
+            <div class="error">
+              <h2>Failed to parse JSON</h2>
+              <p>${e.message}</p>
+              <h3>Response Text:</h3>
+              <pre>${responseText}</pre>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error during test:', error);
+        
+        resultDiv.innerHTML = `
+          <div class="error">
+            <h2>Error</h2>
+            <p>${error.message}</p>
+          </div>
+        `;
+      } finally {
+        // Reset button state
+        button.disabled = false;
+        button.textContent = 'Test Login';
+      }
+    });
+  </script>
+</body>
+</html>
