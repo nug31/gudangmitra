@@ -675,11 +675,10 @@ app.get("/api/dashboard/stats", async (req, res) => {
       SELECT
         r.id,
         'request_created' as type,
-        CONCAT('Request for ', i.name, ' by ', u.username) as description,
+        CONCAT('Request "', r.project_name, '" was created') as description,
         r.created_at as timestamp,
-        u.username as user
+        u.name as user
       FROM requests r
-      JOIN items i ON r.item_id = i.id
       JOIN users u ON r.requester_id = u.id
       ORDER BY r.created_at DESC
       LIMIT 10
@@ -859,11 +858,10 @@ app.get("/api/dashboard/activity", async (req, res) => {
       SELECT
         r.id,
         'request_created' as type,
-        CONCAT('Request for ', i.name, ' by ', u.username) as description,
+        CONCAT('Request "', r.project_name, '" was created') as description,
         r.created_at as timestamp,
-        u.username as user
+        u.name as user
       FROM requests r
-      JOIN items i ON r.item_id = i.id
       JOIN users u ON r.requester_id = u.id
       ORDER BY r.created_at DESC
       LIMIT 20
@@ -935,13 +933,18 @@ app.get("/api/dashboard/user/:userId", async (req, res) => {
     const [userRecentActivity] = await pool.query(`
       SELECT
         r.id,
-        'request_created' as type,
-        CONCAT('You requested ', i.name) as description,
-        r.created_at as timestamp
+        CASE
+          WHEN r.status = 'pending' THEN 'request_created'
+          WHEN r.status = 'approved' THEN 'request_approved'
+          WHEN r.status = 'denied' THEN 'request_denied'
+          WHEN r.status = 'fulfilled' THEN 'request_fulfilled'
+          ELSE 'request_created'
+        END as type,
+        CONCAT('Request "', r.project_name, '" was ', r.status) as description,
+        r.updated_at as timestamp
       FROM requests r
-      JOIN items i ON r.item_id = i.id
       WHERE r.requester_id = ?
-      ORDER BY r.created_at DESC
+      ORDER BY r.updated_at DESC
       LIMIT 10
     `, [userId]);
 
