@@ -200,6 +200,30 @@ app.get("/api/items", async (req, res) => {
   }
 });
 
+// Get unique categories
+app.get("/api/categories", async (req, res) => {
+  try {
+    console.log("GET /api/categories - Fetching unique categories");
+
+    const [rows] = await pool.query("SELECT DISTINCT category FROM items WHERE category IS NOT NULL ORDER BY category");
+
+    const categories = rows.map(row => row.category);
+    console.log(`Found categories:`, categories);
+
+    res.json({
+      success: true,
+      categories: categories
+    });
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching categories",
+      error: error.message,
+    });
+  }
+});
+
 // Get all requests
 app.get("/api/requests", async (req, res) => {
   try {
@@ -560,6 +584,7 @@ app.listen(PORT, () => {
   console.log(`   GET  /api/test-connection`);
   console.log(`   POST /api/auth/login`);
   console.log(`   GET  /api/items`);
+  console.log(`   GET  /api/categories`);
   console.log(`   GET  /api/requests`);
   console.log(`   GET  /api/requests/user/:userId`);
   console.log(`   GET  /api/requests/:id`);
