@@ -17,6 +17,7 @@ import Input from "../components/ui/Input";
 import Select from "../components/ui/Select";
 import { User } from "../types";
 import UserFormModal from "../components/users/UserFormModal";
+import { API_BASE_URL } from "../config";
 
 const UsersPage: React.FC = () => {
   const { isAuthenticated, isAdmin } = useAuth();
@@ -41,12 +42,16 @@ const UsersPage: React.FC = () => {
     setError(null);
     try {
       // Fetch users from API
-      const response = await fetch("/api/users");
+      const response = await fetch(`${API_BASE_URL}/users`);
       if (!response.ok) {
         throw new Error("Failed to fetch users");
       }
       const data = await response.json();
-      setUsers(data);
+      if (data.success && data.users) {
+        setUsers(data.users);
+      } else {
+        setUsers(data);
+      }
     } catch (err) {
       setError("Failed to load users. Please try again.");
       console.error("Error fetching users:", err);
@@ -70,7 +75,7 @@ const UsersPage: React.FC = () => {
       if (editingUser) {
         // Update existing user
         const response = await fetch(
-          `/api/users/${editingUser.id}`,
+          `${API_BASE_URL}/users/${editingUser.id}`,
           {
             method: "PUT",
             headers: {
@@ -92,7 +97,7 @@ const UsersPage: React.FC = () => {
         );
       } else {
         // Create new user
-        const response = await fetch("/api/users", {
+        const response = await fetch(`${API_BASE_URL}/users`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -128,7 +133,7 @@ const UsersPage: React.FC = () => {
     try {
       // Delete user from API
       const response = await fetch(
-        `/api/users/${userId}`,
+        `${API_BASE_URL}/users/${userId}`,
         {
           method: "DELETE",
         }
@@ -157,7 +162,7 @@ const UsersPage: React.FC = () => {
     if (roleFilter !== "all" && user.role !== roleFilter) return false;
     if (
       searchTerm &&
-      !user.username.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !user.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
       !user.email.toLowerCase().includes(searchTerm.toLowerCase())
     )
       return false;
@@ -277,7 +282,7 @@ const UsersPage: React.FC = () => {
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {user.username}
+                          {user.name}
                         </div>
                         <div className="text-sm text-gray-500">
                           {user.email}
