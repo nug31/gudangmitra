@@ -661,9 +661,10 @@ app.get("/api/dashboard/stats", async (req, res) => {
     const [topItems] = await pool.query(`
       SELECT
         i.name,
-        COALESCE(SUM(r.quantity), 0) as total_requested
+        COALESCE(SUM(ri.quantity), 0) as total_requested
       FROM items i
-      LEFT JOIN requests r ON i.id = r.item_id
+      LEFT JOIN request_items ri ON i.id = ri.item_id
+      LEFT JOIN requests r ON ri.request_id = r.id
       GROUP BY i.id, i.name
       ORDER BY total_requested DESC
       LIMIT 5
@@ -832,9 +833,10 @@ app.get("/api/dashboard/top-items", async (req, res) => {
     const [topItems] = await pool.query(`
       SELECT
         i.name,
-        COALESCE(SUM(r.quantity), 0) as total_requested
+        COALESCE(SUM(ri.quantity), 0) as total_requested
       FROM items i
-      LEFT JOIN requests r ON i.id = r.item_id
+      LEFT JOIN request_items ri ON i.id = ri.item_id
+      LEFT JOIN requests r ON ri.request_id = r.id
       GROUP BY i.id, i.name
       ORDER BY total_requested DESC
       LIMIT 10
@@ -909,9 +911,10 @@ app.get("/api/dashboard/user/:userId", async (req, res) => {
     const [userTopItems] = await pool.query(`
       SELECT
         i.name,
-        COALESCE(SUM(r.quantity), 0) as total_requested
+        COALESCE(SUM(ri.quantity), 0) as total_requested
       FROM items i
-      LEFT JOIN requests r ON i.id = r.item_id AND r.requester_id = ?
+      LEFT JOIN request_items ri ON i.id = ri.item_id
+      LEFT JOIN requests r ON ri.request_id = r.id AND r.requester_id = ?
       WHERE r.requester_id IS NOT NULL
       GROUP BY i.id, i.name
       ORDER BY total_requested DESC
