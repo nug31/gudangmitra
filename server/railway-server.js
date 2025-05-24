@@ -107,20 +107,30 @@ app.post("/api/auth/login", async (req, res) => {
       [email]
     );
 
+    console.log(`Found ${users.length} users with email ${email}`);
+
     if (users.length === 0) {
+      // Let's also check what users exist in the database
+      const [allUsers] = await pool.query("SELECT id, name, email, role FROM users LIMIT 5");
+      console.log("Available users in database:", allUsers);
+
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password"
+        message: "Invalid email or password",
+        debug: `No user found with email: ${email}. Available users: ${allUsers.map(u => u.email).join(', ')}`
       });
     }
 
     const user = users[0];
+    console.log(`User found: ${user.email}, checking password...`);
+    console.log(`Stored password: "${user.password}", Provided password: "${password}"`);
 
     // Simple password check (in production, use proper hashing)
     if (user.password !== password) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password"
+        message: "Invalid email or password",
+        debug: `Password mismatch for user ${email}`
       });
     }
 
@@ -198,6 +208,281 @@ app.get("/api/requests", async (req, res) => {
   }
 });
 
+// Get all users (for debugging)
+app.get("/api/users", async (req, res) => {
+  try {
+    console.log("GET /api/users - Fetching all users");
+
+    const [users] = await pool.query("SELECT id, name, email, role FROM users");
+
+    res.json({
+      success: true,
+      users: users,
+      count: users.length
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching users",
+      error: error.message,
+    });
+  }
+});
+
+// Debug endpoint to check database structure
+app.get("/api/debug/users", async (req, res) => {
+  try {
+    console.log("GET /api/debug/users - Debug user information");
+
+    // Get table structure
+    const [structure] = await pool.query("DESCRIBE users");
+
+    // Get all users with passwords (for debugging only)
+    const [users] = await pool.query("SELECT * FROM users LIMIT 10");
+
+    res.json({
+      success: true,
+      table_structure: structure,
+      users: users,
+      count: users.length
+    });
+  } catch (error) {
+    console.error("Error in debug endpoint:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error in debug endpoint",
+      error: error.message,
+    });
+  }
+});
+
+// Get requests by user ID
+app.get("/api/requests/user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`GET /api/requests/user/${userId} - Fetching user requests`);
+
+    const [requests] = await pool.query(`
+      SELECT * FROM requests
+      WHERE requester_id = ?
+      ORDER BY created_at DESC
+    `, [userId]);
+
+    res.json(requests);
+  } catch (error) {
+    console.error("Error fetching user requests:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching user requests",
+      error: error.message,
+    });
+  }
+});
+
+// Get a single request by ID
+app.get("/api/requests/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`GET /api/requests/${id} - Fetching request details`);
+
+    const [requests] = await pool.query(`
+      SELECT * FROM requests
+      WHERE id = ?
+    `, [id]);
+
+    if (requests.length === 0) {
+      return res.status(404).json({ success: false, message: "Request not found" });
+    }
+
+    const request = requests[0];
+
+    // Get items for the request
+    const [items] = await pool.query(`
+      SELECT ri.*, i.name, i.description, i.category
+      FROM request_items ri
+      JOIN items i ON ri.item_id = i.id
+      WHERE ri.request_id = ?
+    `, [id]);
+
+    // Add items to the request
+    request.items = items;
+
+    res.json(request);
+  } catch (error) {
+    console.error("Error fetching request:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching request",
+      error: error.message,
+    });
+  }
+});
+
+// Create a new request
+app.post("/api/requests", async (req, res) => {
+  let connection;
+  try {
+    console.log("POST /api/requests - Creating new request");
+    console.log("Request body:", req.body);
+
+    const {
+      project_name,
+      requester_id,
+      requester_name,
+      reason,
+      priority,
+      due_date,
+      items,
+    } = req.body;
+
+    // Validate required fields
+    if (!project_name || !items || !items.length) {
+      console.error("Missing required fields:", {
+        project_name,
+        requester_id,
+        items,
+      });
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: project_name and items are required",
+      });
+    }
+
+    // Get a connection from the pool
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Generate a UUID for the request
+    const { v4: uuidv4 } = require('uuid');
+    const requestId = uuidv4();
+
+    console.log("Generated request ID:", requestId);
+
+    // Insert the main request
+    const [requestResult] = await connection.query(
+      `
+      INSERT INTO requests (
+        id, project_name, requester_id, requester_name, reason, priority, due_date, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+    `,
+      [
+        requestId,
+        project_name,
+        requester_id,
+        requester_name || "Unknown User",
+        reason || "",
+        priority || "medium",
+        due_date || null,
+      ]
+    );
+
+    console.log("Request inserted:", requestResult);
+
+    // Insert request items
+    for (const item of items) {
+      const { item_id, quantity } = item;
+
+      if (!item_id || !quantity) {
+        throw new Error("Each item must have item_id and quantity");
+      }
+
+      await connection.query(
+        `
+        INSERT INTO request_items (request_id, item_id, quantity)
+        VALUES (?, ?, ?)
+      `,
+        [requestId, item_id, quantity]
+      );
+
+      console.log(`Inserted item: ${item_id}, quantity: ${quantity}`);
+    }
+
+    // Commit the transaction
+    await connection.commit();
+
+    // Fetch the created request with items
+    const [createdRequest] = await pool.query(`
+      SELECT * FROM requests WHERE id = ?
+    `, [requestId]);
+
+    const [requestItems] = await pool.query(`
+      SELECT ri.*, i.name, i.description, i.category
+      FROM request_items ri
+      JOIN items i ON ri.item_id = i.id
+      WHERE ri.request_id = ?
+    `, [requestId]);
+
+    const response = {
+      ...createdRequest[0],
+      items: requestItems
+    };
+
+    console.log("Request created successfully:", response);
+
+    res.status(201).json(response);
+  } catch (error) {
+    console.error("Error creating request:", error);
+
+    // Rollback transaction if connection exists
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error("Error rolling back transaction:", rollbackError);
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Error creating request",
+      error: error.message,
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
+// Update request status
+app.patch("/api/requests/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    console.log(`PATCH /api/requests/${id}/status - Updating request status to ${status}`);
+
+    // Validate status
+    const validStatuses = ["pending", "approved", "denied", "fulfilled", "out_of_stock"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
+      });
+    }
+
+    const [result] = await pool.query(`
+      UPDATE requests
+      SET status = ?
+      WHERE id = ?
+    `, [status, id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Request not found" });
+    }
+
+    res.json({ success: true, message: "Request status updated successfully" });
+  } catch (error) {
+    console.error("Error updating request status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating request status",
+      error: error.message,
+    });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({
@@ -237,6 +522,12 @@ app.listen(PORT, () => {
   console.log(`   POST /api/auth/login`);
   console.log(`   GET  /api/items`);
   console.log(`   GET  /api/requests`);
+  console.log(`   GET  /api/requests/user/:userId`);
+  console.log(`   GET  /api/requests/:id`);
+  console.log(`   POST /api/requests`);
+  console.log(`   PATCH /api/requests/:id/status`);
+  console.log(`   GET  /api/users`);
+  console.log(`   GET  /api/debug/users`);
   console.log(`\n✅ Server ready!`);
 });
 
