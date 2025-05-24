@@ -24,6 +24,7 @@ import Input from "../components/ui/Input";
 import { itemService } from "../services/itemService";
 import { categoryService } from "../services/categoryService";
 import { normalizeCategory, categoriesAreEqual } from "../utils/categoryUtils";
+import { API_BASE_URL } from "../config";
 
 const InventoryPage: React.FC = () => {
   const [items, setItems] = useState<Item[]>([]);
@@ -80,7 +81,7 @@ const InventoryPage: React.FC = () => {
       console.log("InventoryPage: Fetching items directly from API...");
 
       // Direct API call
-      const response = await fetch("/api/items");
+      const response = await fetch(`${API_BASE_URL}/items`);
       console.log("InventoryPage: Response status:", response.status);
 
       if (!response.ok) {
