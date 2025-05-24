@@ -62,14 +62,18 @@ class CategoryService {
       }
       const data = await response.json();
 
+      console.log("Categories API response:", data); // Debug log
+
       // Handle the new API response format and use original database values
-      if (data.success && data.categories) {
+      if (data.success && data.categories && Array.isArray(data.categories)) {
+        console.log("Processing categories:", data.categories); // Debug log
         return data.categories.map((categoryName: string) => ({
           value: categoryName, // Use original database value
           label: this.formatCategoryName(categoryName), // Use formatted display name
         }));
       }
 
+      console.error("Invalid response format or categories not an array:", data);
       throw new Error("Invalid response format");
     } catch (error) {
       console.error("Error getting category options:", error);
