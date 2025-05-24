@@ -502,6 +502,7 @@ app.post("/api/requests", async (req, res) => {
       error: error.message,
     });
   } finally {
+    // Release connection back to pool
     if (connection) {
       connection.release();
     }
@@ -510,39 +511,92 @@ app.post("/api/requests", async (req, res) => {
 
 // Update request status
 app.patch("/api/requests/:id/status", async (req, res) => {
+  let connection;
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, approved_by } = req.body;
 
-    console.log(`PATCH /api/requests/${id}/status - Updating request status to ${status}`);
+    console.log(`PATCH /api/requests/${id}/status - Updating status to: ${status}`);
 
-    // Validate status
-    const validStatuses = ["pending", "approved", "denied", "fulfilled", "out_of_stock"];
-    if (!validStatuses.includes(status)) {
+    if (!status) {
       return res.status(400).json({
         success: false,
-        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
+        message: "Status is required"
       });
     }
 
-    const [result] = await pool.query(`
-      UPDATE requests
-      SET status = ?
-      WHERE id = ?
-    `, [status, id]);
+    // Get a connection from the pool
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: "Request not found" });
+    // Update the request status
+    const [updateResult] = await connection.query(
+      `UPDATE requests SET status = ?, approved_by = ?, updated_at = NOW() WHERE id = ?`,
+      [status, approved_by || null, id]
+    );
+
+    if (updateResult.affectedRows === 0) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Request not found"
+      });
     }
 
-    res.json({ success: true, message: "Request status updated successfully" });
+    // If status is approved, update item quantities
+    if (status === 'approved') {
+      // Get request items
+      const [requestItems] = await connection.query(`
+        SELECT ri.item_id, ri.quantity
+        FROM request_items ri
+        WHERE ri.request_id = ?
+      `, [id]);
+
+      // Update item quantities
+      for (const item of requestItems) {
+        await connection.query(`
+          UPDATE items
+          SET quantity = quantity - ?
+          WHERE id = ? AND quantity >= ?
+        `, [item.quantity, item.item_id, item.quantity]);
+      }
+    }
+
+    await connection.commit();
+
+    // Fetch the updated request
+    const [updatedRequest] = await pool.query(`
+      SELECT * FROM requests WHERE id = ?
+    `, [id]);
+
+    res.json({
+      success: true,
+      message: "Request status updated successfully",
+      request: updatedRequest[0]
+    });
+
   } catch (error) {
     console.error("Error updating request status:", error);
+
+    // Rollback transaction if connection exists
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error("Error rolling back transaction:", rollbackError);
+      }
+    }
+
     res.status(500).json({
       success: false,
       message: "Error updating request status",
       error: error.message,
     });
+  } finally {
+    // Release connection back to pool
+    if (connection) {
+      connection.release();
+    }
   }
 });
 
@@ -555,7 +609,278 @@ app.get('/health', (req, res) => {
   });
 });
 
-// 404 handler
+// Dashboard API endpoints
+// Get comprehensive dashboard statistics
+app.get("/api/dashboard/stats", async (req, res) => {
+  try {
+    console.log("GET /api/dashboard/stats - Fetching dashboard statistics");
+
+    // Get user statistics
+    const [userStats] = await pool.query(`
+      SELECT
+        COUNT(*) as total_users,
+        SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) as admin_count,
+        SUM(CASE WHEN role = 'manager' THEN 1 ELSE 0 END) as manager_count,
+        SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END) as user_count
+      FROM users
+    `);
+
+    // Get item statistics
+    const [itemStats] = await pool.query(`
+      SELECT
+        COUNT(*) as total_items,
+        COALESCE(SUM(quantity), 0) as total_quantity,
+        COUNT(CASE WHEN quantity <= minQuantity THEN 1 END) as low_stock_items
+      FROM items
+    `);
+
+    // Get category count
+    const [categoryStats] = await pool.query(`
+      SELECT COUNT(DISTINCT category) as total_categories FROM items WHERE category IS NOT NULL
+    `);
+
+    // Get request statistics
+    const [requestStats] = await pool.query(`
+      SELECT
+        COUNT(*) as total_requests,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_count,
+        SUM(CASE WHEN status = 'denied' THEN 1 ELSE 0 END) as denied_count,
+        SUM(CASE WHEN status = 'fulfilled' THEN 1 ELSE 0 END) as fulfilled_count
+      FROM requests
+    `);
+
+    // Get recent requests (last 7 days)
+    const [recentRequests] = await pool.query(`
+      SELECT COUNT(*) as recent_count
+      FROM requests
+      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+    `);
+
+    // Get top requested items
+    const [topItems] = await pool.query(`
+      SELECT
+        i.name,
+        COALESCE(SUM(r.quantity), 0) as total_requested
+      FROM items i
+      LEFT JOIN requests r ON i.id = r.item_id
+      GROUP BY i.id, i.name
+      ORDER BY total_requested DESC
+      LIMIT 5
+    `);
+
+    // Get recent activity
+    const [recentActivity] = await pool.query(`
+      SELECT
+        r.id,
+        'request_created' as type,
+        CONCAT('Request for ', i.name, ' by ', u.username) as description,
+        r.created_at as timestamp,
+        u.username as user
+      FROM requests r
+      JOIN items i ON r.item_id = i.id
+      JOIN users u ON r.requester_id = u.id
+      ORDER BY r.created_at DESC
+      LIMIT 10
+    `);
+
+    const dashboardStats = {
+      // User statistics
+      totalUsers: userStats[0].total_users,
+      usersByRole: {
+        admin: userStats[0].admin_count,
+        manager: userStats[0].manager_count,
+        user: userStats[0].user_count
+      },
+
+      // Item statistics
+      totalItems: itemStats[0].total_items,
+      totalQuantity: parseInt(itemStats[0].total_quantity),
+      lowStockItems: itemStats[0].low_stock_items,
+      totalCategories: categoryStats[0].total_categories,
+
+      // Request statistics
+      totalRequests: requestStats[0].total_requests,
+      requestsByStatus: {
+        pending: requestStats[0].pending_count,
+        approved: requestStats[0].approved_count,
+        denied: requestStats[0].denied_count,
+        fulfilled: requestStats[0].fulfilled_count
+      },
+      recentRequests: recentRequests[0].recent_count,
+
+      // Top requested items
+      topRequestedItems: topItems.map(item => ({
+        name: item.name,
+        totalRequested: parseInt(item.total_requested)
+      })),
+
+      // Recent activity
+      recentActivity: recentActivity.map(activity => ({
+        id: activity.id.toString(),
+        type: activity.type,
+        description: activity.description,
+        timestamp: activity.timestamp.toISOString(),
+        user: activity.user
+      }))
+    };
+
+    console.log("Dashboard stats compiled successfully");
+    res.json(dashboardStats);
+
+  } catch (error) {
+    console.error("Error fetching dashboard stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching dashboard statistics",
+      error: error.message
+    });
+  }
+});
+
+// Get user statistics
+app.get("/api/dashboard/users", async (req, res) => {
+  try {
+    const [userStats] = await pool.query(`
+      SELECT
+        COUNT(*) as total_users,
+        SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) as admin_count,
+        SUM(CASE WHEN role = 'manager' THEN 1 ELSE 0 END) as manager_count,
+        SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END) as user_count
+      FROM users
+    `);
+
+    res.json({
+      totalUsers: userStats[0].total_users,
+      usersByRole: {
+        admin: userStats[0].admin_count,
+        manager: userStats[0].manager_count,
+        user: userStats[0].user_count
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching user stats:", error);
+    res.status(500).json({ success: false, message: "Error fetching user statistics" });
+  }
+});
+
+// Get item statistics
+app.get("/api/dashboard/items", async (req, res) => {
+  try {
+    const [itemStats] = await pool.query(`
+      SELECT
+        COUNT(*) as total_items,
+        COALESCE(SUM(quantity), 0) as total_quantity,
+        COUNT(CASE WHEN quantity <= minQuantity THEN 1 END) as low_stock_items
+      FROM items
+    `);
+
+    const [categoryStats] = await pool.query(`
+      SELECT COUNT(DISTINCT category) as total_categories FROM items WHERE category IS NOT NULL
+    `);
+
+    res.json({
+      totalItems: itemStats[0].total_items,
+      totalQuantity: parseInt(itemStats[0].total_quantity),
+      lowStockItems: itemStats[0].low_stock_items,
+      totalCategories: categoryStats[0].total_categories
+    });
+  } catch (error) {
+    console.error("Error fetching item stats:", error);
+    res.status(500).json({ success: false, message: "Error fetching item statistics" });
+  }
+});
+
+// Get request statistics
+app.get("/api/dashboard/requests", async (req, res) => {
+  try {
+    const [requestStats] = await pool.query(`
+      SELECT
+        COUNT(*) as total_requests,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_count,
+        SUM(CASE WHEN status = 'denied' THEN 1 ELSE 0 END) as denied_count,
+        SUM(CASE WHEN status = 'fulfilled' THEN 1 ELSE 0 END) as fulfilled_count
+      FROM requests
+    `);
+
+    const [recentRequests] = await pool.query(`
+      SELECT COUNT(*) as recent_count
+      FROM requests
+      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+    `);
+
+    res.json({
+      totalRequests: requestStats[0].total_requests,
+      requestsByStatus: {
+        pending: requestStats[0].pending_count,
+        approved: requestStats[0].approved_count,
+        denied: requestStats[0].denied_count,
+        fulfilled: requestStats[0].fulfilled_count
+      },
+      recentRequests: recentRequests[0].recent_count
+    });
+  } catch (error) {
+    console.error("Error fetching request stats:", error);
+    res.status(500).json({ success: false, message: "Error fetching request statistics" });
+  }
+});
+
+// Get top requested items
+app.get("/api/dashboard/top-items", async (req, res) => {
+  try {
+    const [topItems] = await pool.query(`
+      SELECT
+        i.name,
+        COALESCE(SUM(r.quantity), 0) as total_requested
+      FROM items i
+      LEFT JOIN requests r ON i.id = r.item_id
+      GROUP BY i.id, i.name
+      ORDER BY total_requested DESC
+      LIMIT 10
+    `);
+
+    res.json(topItems.map(item => ({
+      name: item.name,
+      totalRequested: parseInt(item.total_requested)
+    })));
+  } catch (error) {
+    console.error("Error fetching top items:", error);
+    res.status(500).json({ success: false, message: "Error fetching top requested items" });
+  }
+});
+
+// Get recent activity
+app.get("/api/dashboard/activity", async (req, res) => {
+  try {
+    const [recentActivity] = await pool.query(`
+      SELECT
+        r.id,
+        'request_created' as type,
+        CONCAT('Request for ', i.name, ' by ', u.username) as description,
+        r.created_at as timestamp,
+        u.username as user
+      FROM requests r
+      JOIN items i ON r.item_id = i.id
+      JOIN users u ON r.requester_id = u.id
+      ORDER BY r.created_at DESC
+      LIMIT 20
+    `);
+
+    res.json(recentActivity.map(activity => ({
+      id: activity.id.toString(),
+      type: activity.type,
+      description: activity.description,
+      timestamp: activity.timestamp.toISOString(),
+      user: activity.user
+    })));
+  } catch (error) {
+    console.error("Error fetching recent activity:", error);
+    res.status(500).json({ success: false, message: "Error fetching recent activity" });
+  }
+});
+
+// 404 handler (must be after all routes)
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -564,7 +889,7 @@ app.use((req, res) => {
   });
 });
 
-// Error handler
+// Error handler (must be last)
 app.use((error, req, res, next) => {
   console.error("Server error:", error);
   res.status(500).json({
@@ -593,6 +918,12 @@ app.listen(PORT, () => {
   console.log(`   GET  /api/users`);
   console.log(`   GET  /api/debug/users`);
   console.log(`   GET  /api/debug/requests`);
+  console.log(`   GET  /api/dashboard/stats`);
+  console.log(`   GET  /api/dashboard/users`);
+  console.log(`   GET  /api/dashboard/items`);
+  console.log(`   GET  /api/dashboard/requests`);
+  console.log(`   GET  /api/dashboard/top-items`);
+  console.log(`   GET  /api/dashboard/activity`);
   console.log(`\n✅ Server ready!`);
 });
 
