@@ -17,22 +17,60 @@ class CategoryService {
       if (!response.ok) {
         throw new Error(`Failed to fetch categories: ${response.statusText}`);
       }
-      return await response.json();
+      const data = await response.json();
+
+      // Handle the new API response format: { success: true, categories: [...] }
+      if (data.success && data.categories) {
+        return data.categories.map((categoryName: string, index: number) => ({
+          id: (index + 1).toString(),
+          name: this.formatCategoryName(categoryName),
+          description: `${this.formatCategoryName(categoryName)} items`
+        }));
+      }
+
+      // Fallback for old format
+      return Array.isArray(data) ? data : [];
     } catch (error) {
       console.error("Error fetching categories:", error);
       throw error;
     }
   }
 
+  // Helper method to format category names for display
+  private formatCategoryName(categoryString: string): string {
+    // Map hyphenated category names to proper display names
+    const categoryMapping: Record<string, string> = {
+      'cleaning-materials': 'Cleaning Materials',
+      'office-supplies': 'Office Supplies',
+      'Office-supplies': 'Office Supplies', // Handle inconsistent casing
+      'electronics': 'Electronics',
+      'furniture': 'Furniture',
+      'other': 'Other'
+    };
+
+    return categoryMapping[categoryString] ||
+           categoryString.split('-').map(word =>
+             word.charAt(0).toUpperCase() + word.slice(1)
+           ).join(' ');
+  }
+
   async getCategoryOptions(): Promise<{ value: string; label: string }[]> {
     try {
-      const categories = await this.getAllCategories();
+      const response = await fetch(this.apiUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch categories: ${response.statusText}`);
+      }
+      const data = await response.json();
 
-      // Map categories to dropdown options format
-      return categories.map((category) => ({
-        value: category.name.toLowerCase().replace(/\s+/g, "-"), // Convert to kebab-case
-        label: category.name,
-      }));
+      // Handle the new API response format and use original database values
+      if (data.success && data.categories) {
+        return data.categories.map((categoryName: string) => ({
+          value: categoryName, // Use original database value
+          label: this.formatCategoryName(categoryName), // Use formatted display name
+        }));
+      }
+
+      throw new Error("Invalid response format");
     } catch (error) {
       console.error("Error getting category options:", error);
 
@@ -40,6 +78,7 @@ class CategoryService {
       return [
         { value: "electronics", label: "Electronics" },
         { value: "office-supplies", label: "Office Supplies" },
+        { value: "cleaning-materials", label: "Cleaning Materials" },
         { value: "furniture", label: "Furniture" },
         { value: "other", label: "Other" },
       ];
