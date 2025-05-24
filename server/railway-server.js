@@ -125,8 +125,21 @@ app.post("/api/auth/login", async (req, res) => {
     console.log(`User found: ${user.email}, checking password...`);
     console.log(`Stored password: "${user.password}", Provided password: "${password}"`);
 
-    // Simple password check (in production, use proper hashing)
-    if (user.password !== password) {
+    // Check password - handle both plain text and bcrypt hashed passwords
+    let passwordMatches = false;
+
+    if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
+      // Bcrypt hashed password
+      const bcrypt = require('bcrypt');
+      passwordMatches = await bcrypt.compare(password, user.password);
+      console.log(`Bcrypt password check for ${email}: ${passwordMatches}`);
+    } else {
+      // Plain text password
+      passwordMatches = user.password === password;
+      console.log(`Plain text password check for ${email}: ${passwordMatches}`);
+    }
+
+    if (!passwordMatches) {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
@@ -257,6 +270,33 @@ app.get("/api/debug/users", async (req, res) => {
   }
 });
 
+// Debug endpoint to check requests table structure
+app.get("/api/debug/requests", async (req, res) => {
+  try {
+    console.log("GET /api/debug/requests - Debug requests table information");
+
+    // Get table structure
+    const [structure] = await pool.query("DESCRIBE requests");
+
+    // Get sample requests
+    const [requests] = await pool.query("SELECT * FROM requests LIMIT 5");
+
+    res.json({
+      success: true,
+      table_structure: structure,
+      sample_requests: requests,
+      count: requests.length
+    });
+  } catch (error) {
+    console.error("Error in debug requests endpoint:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error in debug requests endpoint",
+      error: error.message,
+    });
+  }
+});
+
 // Get requests by user ID
 app.get("/api/requests/user/:userId", async (req, res) => {
   try {
@@ -359,18 +399,17 @@ app.post("/api/requests", async (req, res) => {
 
     console.log("Generated request ID:", requestId);
 
-    // Insert the main request
+    // Insert the main request (without requester_name since it doesn't exist in the table)
     const [requestResult] = await connection.query(
       `
       INSERT INTO requests (
-        id, project_name, requester_id, requester_name, reason, priority, due_date, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+        id, project_name, requester_id, reason, priority, due_date, status
+      ) VALUES (?, ?, ?, ?, ?, ?, 'pending')
     `,
       [
         requestId,
         project_name,
         requester_id,
-        requester_name || "Unknown User",
         reason || "",
         priority || "medium",
         due_date || null,
@@ -528,6 +567,7 @@ app.listen(PORT, () => {
   console.log(`   PATCH /api/requests/:id/status`);
   console.log(`   GET  /api/users`);
   console.log(`   GET  /api/debug/users`);
+  console.log(`   GET  /api/debug/requests`);
   console.log(`\n✅ Server ready!`);
 });
 
