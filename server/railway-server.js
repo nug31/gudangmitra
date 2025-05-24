@@ -150,7 +150,7 @@ app.post("/api/auth/login", async (req, res) => {
     // Return user data (excluding password)
     const userData = {
       id: user.id,
-      name: user.name,
+      username: user.name,
       email: user.email,
       role: user.role
     };
