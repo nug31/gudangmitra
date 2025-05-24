@@ -7,6 +7,7 @@ import RequestList from "../components/requests/RequestList";
 import Alert from "../components/ui/Alert";
 import Button from "../components/ui/Button";
 import { LogIn, ClipboardList } from "lucide-react";
+import { API_BASE_URL } from "../config";
 
 const RequestsPage: React.FC = () => {
   const { user, isAuthenticated, isAdmin } = useAuth();
@@ -36,10 +37,9 @@ const RequestsPage: React.FC = () => {
       console.log("Fetching requests, isAdmin:", isAdmin, "user:", user);
 
       // Direct API call to fetch requests
-      const API_URL = "/api";
-      console.log("Fetching from API URL:", `${API_URL}/requests`);
+      console.log("Fetching from API URL:", `${API_BASE_URL}/requests`);
 
-      const response = await fetch(`${API_URL}/requests`);
+      const response = await fetch(`${API_BASE_URL}/requests`);
       console.log("Response status:", response.status);
 
       if (!response.ok) {
