@@ -511,12 +511,13 @@ app.post("/api/requests", async (req, res) => {
 
 // Update request status
 app.patch("/api/requests/:id/status", async (req, res) => {
-  let connection;
   try {
     const { id } = req.params;
     const { status, approved_by } = req.body;
 
     console.log(`PATCH /api/requests/${id}/status - Updating status to: ${status}`);
+    console.log(`Request ID: "${id}", Status: "${status}"`);
+    console.log(`Request body:`, req.body);
 
     if (!status) {
       return res.status(400).json({
@@ -525,44 +526,53 @@ app.patch("/api/requests/:id/status", async (req, res) => {
       });
     }
 
-    // Get a connection from the pool
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
-
-    // Update the request status
-    const [updateResult] = await connection.query(
-      `UPDATE requests SET status = ?, approved_by = ?, updated_at = NOW() WHERE id = ?`,
-      [status, approved_by || null, id]
-    );
-
-    if (updateResult.affectedRows === 0) {
-      await connection.rollback();
-      return res.status(404).json({
+    // Validate status
+    const validStatuses = ["pending", "approved", "denied", "fulfilled", "out_of_stock"];
+    if (!validStatuses.includes(status)) {
+      console.log(`Invalid status provided: ${status}`);
+      return res.status(400).json({
         success: false,
-        message: "Request not found"
+        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
       });
     }
 
-    // If status is approved, update item quantities
-    if (status === 'approved') {
-      // Get request items
-      const [requestItems] = await connection.query(`
-        SELECT ri.item_id, ri.quantity
-        FROM request_items ri
-        WHERE ri.request_id = ?
-      `, [id]);
+    // First, check if the request exists
+    console.log(`Checking if request exists with ID: ${id}`);
+    const [existingRequests] = await pool.query(`
+      SELECT id, status FROM requests WHERE id = ?
+    `, [id]);
 
-      // Update item quantities
-      for (const item of requestItems) {
-        await connection.query(`
-          UPDATE items
-          SET quantity = quantity - ?
-          WHERE id = ? AND quantity >= ?
-        `, [item.quantity, item.item_id, item.quantity]);
-      }
+    console.log(`Found ${existingRequests.length} requests with ID ${id}:`, existingRequests);
+
+    if (existingRequests.length === 0) {
+      console.log(`Request not found with ID: ${id}`);
+      return res.status(404).json({
+        success: false,
+        message: "Request not found",
+        debug: `No request found with ID: ${id}`
+      });
     }
 
-    await connection.commit();
+    console.log(`Updating request ${id} from status "${existingRequests[0].status}" to "${status}"`);
+
+    // Update the request status (simplified version without item quantity updates for now)
+    const [updateResult] = await pool.query(
+      `UPDATE requests SET status = ?, updated_at = NOW() WHERE id = ?`,
+      [status, id]
+    );
+
+    console.log(`Update result:`, updateResult);
+
+    if (updateResult.affectedRows === 0) {
+      console.log(`No rows affected when updating request ${id}`);
+      return res.status(404).json({
+        success: false,
+        message: "Request not found or no changes made",
+        debug: `Update affected ${updateResult.affectedRows} rows`
+      });
+    }
+
+    console.log(`Successfully updated request ${id} status to ${status}`);
 
     // Fetch the updated request
     const [updatedRequest] = await pool.query(`
@@ -572,31 +582,19 @@ app.patch("/api/requests/:id/status", async (req, res) => {
     res.json({
       success: true,
       message: "Request status updated successfully",
-      request: updatedRequest[0]
+      request: updatedRequest[0],
+      debug: `Updated ${updateResult.affectedRows} row(s)`
     });
 
   } catch (error) {
     console.error("Error updating request status:", error);
-
-    // Rollback transaction if connection exists
-    if (connection) {
-      try {
-        await connection.rollback();
-      } catch (rollbackError) {
-        console.error("Error rolling back transaction:", rollbackError);
-      }
-    }
-
+    console.error("Error stack:", error.stack);
     res.status(500).json({
       success: false,
       message: "Error updating request status",
       error: error.message,
+      stack: process.env.NODE_ENV === 'production' ? null : error.stack
     });
-  } finally {
-    // Release connection back to pool
-    if (connection) {
-      connection.release();
-    }
   }
 });
 
