@@ -16,6 +16,7 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { itemService } from "../services/itemService";
 import { categoryService } from "../services/categoryService";
+import { API_BASE_URL } from "../config";
 import Alert from "../components/ui/Alert";
 import { Link } from "react-router-dom";
 import RequestItemModal from "../components/requests/RequestItemModal";
@@ -28,39 +29,7 @@ const BrowseItemsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  const [items, setItems] = useState<Item[]>([
-    // Add some hardcoded items for testing
-    {
-      id: "1",
-      name: "Test Monitor",
-      description: "24 inch display",
-      category: "electronics",
-      quantity: 9,
-      minQuantity: 3,
-      status: "in-stock",
-      price: 0,
-    },
-    {
-      id: "2",
-      name: "Test Keyboard",
-      description: "Mechanical keyboard",
-      category: "electronics",
-      quantity: 10,
-      minQuantity: 3,
-      status: "in-stock",
-      price: 0,
-    },
-    {
-      id: "3",
-      name: "Test Mouse",
-      description: "Wireless mouse",
-      category: "electronics",
-      quantity: 15,
-      minQuantity: 5,
-      status: "in-stock",
-      price: 0,
-    },
-  ]);
+  const [items, setItems] = useState<Item[]>([]);
 
   useEffect(() => {
     // Fetch items from the API
@@ -72,12 +41,38 @@ const BrowseItemsPage: React.FC = () => {
   // Function to fetch categories from the database
   const fetchCategories = async () => {
     try {
-      // Get category options from the categoryService
-      const options = await categoryService.getCategoryOptions();
+      // Directly fetch from API to bypass categoryService issues
+      const response = await fetch(`${API_BASE_URL}/categories`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.categories && Array.isArray(data.categories)) {
+          // Format categories for display
+          const formatCategoryName = (categoryString: string): string => {
+            const categoryMapping: Record<string, string> = {
+              'cleaning-materials': 'Cleaning Materials',
+              'office-supplies': 'Office Supplies',
+              'Office-supplies': 'Office Supplies',
+              'electronics': 'Electronics',
+              'furniture': 'Furniture',
+              'other': 'Other'
+            };
+            return categoryMapping[categoryString] ||
+                   categoryString.split('-').map(word =>
+                     word.charAt(0).toUpperCase() + word.slice(1)
+                   ).join(' ');
+          };
 
-      // Add the "All Categories" option at the beginning
-      const allCategoriesOption = { value: "all", label: "All Categories" };
-      setCategoryOptions([allCategoriesOption, ...options]);
+          const options = data.categories.map((categoryName: string) => ({
+            value: categoryName,
+            label: formatCategoryName(categoryName),
+          }));
+
+          // Add the "All Categories" option at the beginning
+          const allCategoriesOption = { value: "all", label: "All Categories" };
+          setCategoryOptions([allCategoriesOption, ...options]);
+          console.log("Categories loaded successfully:", options);
+        }
+      }
     } catch (err) {
       console.error("Error fetching categories:", err);
       // Keep the default categories if there's an error
@@ -86,41 +81,17 @@ const BrowseItemsPage: React.FC = () => {
 
   const fetchItems = async () => {
     setLoading(true);
+    setError(null); // Clear any previous errors
     try {
-      console.log("BrowseItemsPage: Fetching items directly from API...");
+      console.log("BrowseItemsPage: Fetching items from itemService...");
 
-      // Direct API call - use the proxy path for development
-      const response = await fetch("/api/items");
-      console.log("BrowseItemsPage: Response status:", response.status);
+      // Use the itemService which handles environment variables correctly
+      const fetchedItems = await itemService.getAllItems();
+      console.log("BrowseItemsPage: Items received from itemService:", fetchedItems);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("BrowseItemsPage: Items received directly from API:", data);
-
-      // Map the data to the expected format
-      const formattedItems = data.map((item: any) => {
-        // Use the utility function to normalize the category
-        const normalizedCategory = normalizeCategory(item.category);
-
-        return {
-          id: item.id?.toString() || "0",
-          name: item.name || "Unknown Item",
-          description: item.description || "",
-          category: normalizedCategory,
-          quantity: typeof item.quantity === "number" ? item.quantity : 0,
-          minQuantity:
-            typeof item.minQuantity === "number" ? item.minQuantity : 0,
-          status: item.status || "in-stock",
-          lastRestocked: item.lastRestocked,
-          price: item.price,
-        };
-      });
-
-      console.log("BrowseItemsPage: Formatted items:", formattedItems);
-      setItems(formattedItems);
+      setItems(fetchedItems);
+      // Clear error on successful fetch
+      setError(null);
     } catch (err) {
       console.error("BrowseItemsPage: Error fetching items:", err);
       setError("Failed to load items");
