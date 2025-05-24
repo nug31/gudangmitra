@@ -880,6 +880,104 @@ app.get("/api/dashboard/activity", async (req, res) => {
   }
 });
 
+// Get user-specific dashboard statistics
+app.get("/api/dashboard/user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`GET /api/dashboard/user/${userId} - Fetching user dashboard statistics`);
+
+    // Get user's request statistics
+    const [userRequestStats] = await pool.query(`
+      SELECT
+        COUNT(*) as total_requests,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_count,
+        SUM(CASE WHEN status = 'denied' THEN 1 ELSE 0 END) as denied_count,
+        SUM(CASE WHEN status = 'fulfilled' THEN 1 ELSE 0 END) as fulfilled_count
+      FROM requests
+      WHERE requester_id = ?
+    `, [userId]);
+
+    // Get user's recent requests (last 7 days)
+    const [recentUserRequests] = await pool.query(`
+      SELECT COUNT(*) as recent_count
+      FROM requests
+      WHERE requester_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+    `, [userId]);
+
+    // Get user's top requested items
+    const [userTopItems] = await pool.query(`
+      SELECT
+        i.name,
+        COALESCE(SUM(r.quantity), 0) as total_requested
+      FROM items i
+      LEFT JOIN requests r ON i.id = r.item_id AND r.requester_id = ?
+      WHERE r.requester_id IS NOT NULL
+      GROUP BY i.id, i.name
+      ORDER BY total_requested DESC
+      LIMIT 5
+    `, [userId]);
+
+    // Get available items count
+    const [availableItems] = await pool.query(`
+      SELECT COUNT(*) as available_items FROM items WHERE quantity > 0
+    `);
+
+    // Get available categories count
+    const [availableCategories] = await pool.query(`
+      SELECT COUNT(DISTINCT category) as available_categories FROM items WHERE category IS NOT NULL
+    `);
+
+    // Get user's recent activity
+    const [userRecentActivity] = await pool.query(`
+      SELECT
+        r.id,
+        'request_created' as type,
+        CONCAT('You requested ', i.name) as description,
+        r.created_at as timestamp
+      FROM requests r
+      JOIN items i ON r.item_id = i.id
+      WHERE r.requester_id = ?
+      ORDER BY r.created_at DESC
+      LIMIT 10
+    `, [userId]);
+
+    const userDashboardStats = {
+      myRequests: {
+        total: userRequestStats[0].total_requests,
+        pending: userRequestStats[0].pending_count,
+        approved: userRequestStats[0].approved_count,
+        denied: userRequestStats[0].denied_count,
+        fulfilled: userRequestStats[0].fulfilled_count
+      },
+      recentRequests: recentUserRequests[0].recent_count,
+      myTopRequestedItems: userTopItems.map(item => ({
+        name: item.name,
+        totalRequested: parseInt(item.total_requested)
+      })),
+      availableItems: availableItems[0].available_items,
+      availableCategories: availableCategories[0].available_categories,
+      myRecentActivity: userRecentActivity.map(activity => ({
+        id: activity.id.toString(),
+        type: activity.type,
+        description: activity.description,
+        timestamp: activity.timestamp.toISOString()
+      }))
+    };
+
+    console.log("User dashboard stats compiled successfully");
+    res.json(userDashboardStats);
+
+  } catch (error) {
+    console.error("Error fetching user dashboard stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching user dashboard statistics",
+      error: error.message
+    });
+  }
+});
+
 // 404 handler (must be after all routes)
 app.use((req, res) => {
   res.status(404).json({
@@ -924,6 +1022,7 @@ app.listen(PORT, () => {
   console.log(`   GET  /api/dashboard/requests`);
   console.log(`   GET  /api/dashboard/top-items`);
   console.log(`   GET  /api/dashboard/activity`);
+  console.log(`   GET  /api/dashboard/user/:userId`);
   console.log(`\n✅ Server ready!`);
 });
 
