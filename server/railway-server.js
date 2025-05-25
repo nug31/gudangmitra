@@ -200,6 +200,91 @@ app.get("/api/items", async (req, res) => {
   }
 });
 
+// Update an existing item
+app.put("/api/items/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    console.log(`PUT /api/items/${id} - Updating item`);
+    console.log("Updates:", updates);
+
+    // Check if the item exists
+    const [existingItems] = await pool.query("SELECT * FROM items WHERE id = ?", [id]);
+
+    if (existingItems.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Item not found"
+      });
+    }
+
+    // Build the update query dynamically
+    const updateFields = [];
+    const updateValues = [];
+
+    // Only update fields that are provided
+    const allowedFields = ['name', 'description', 'category', 'quantity', 'minQuantity', 'price', 'lastRestocked'];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (allowedFields.includes(key) && value !== undefined) {
+        updateFields.push(`${key} = ?`);
+        updateValues.push(value);
+      }
+    });
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid fields to update"
+      });
+    }
+
+    // Add the id to the values array for the WHERE clause
+    updateValues.push(id);
+
+    const query = `UPDATE items SET ${updateFields.join(", ")} WHERE id = ?`;
+    console.log("Update query:", query);
+    console.log("Update values:", updateValues);
+
+    const [result] = await pool.query(query, updateValues);
+
+    if (result.affectedRows > 0) {
+      // Fetch the updated item
+      const [updatedItems] = await pool.query("SELECT * FROM items WHERE id = ?", [id]);
+      const updatedItem = updatedItems[0];
+
+      // Format the response
+      const formattedItem = {
+        id: updatedItem.id.toString(),
+        name: updatedItem.name || "Unknown Item",
+        description: updatedItem.description || "",
+        category: updatedItem.category || "Other",
+        quantity: typeof updatedItem.quantity === "number" ? updatedItem.quantity : 0,
+        minQuantity: typeof updatedItem.minQuantity === "number" ? updatedItem.minQuantity : 0,
+        status: updatedItem.quantity > 0 ? (updatedItem.quantity <= updatedItem.minQuantity ? "low-stock" : "in-stock") : "out-of-stock",
+        price: updatedItem.price || 0,
+        lastRestocked: updatedItem.lastRestocked
+      };
+
+      console.log("Item updated successfully:", formattedItem);
+      res.json(formattedItem);
+    } else {
+      res.status(404).json({
+        success: false,
+        message: "Item not found"
+      });
+    }
+  } catch (error) {
+    console.error("Error updating item:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating item",
+      error: error.message,
+    });
+  }
+});
+
 // Get unique categories
 app.get("/api/categories", async (req, res) => {
   try {
