@@ -327,6 +327,75 @@ app.get("/api/users/:id", async (req, res) => {
   }
 });
 
+// Create a new user (registration)
+app.post("/api/users", async (req, res) => {
+  try {
+    console.log("POST /api/users - Creating new user");
+    console.log("Request body:", req.body);
+
+    const { name, email, password, role } = req.body;
+
+    // Validate required fields
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email, and password are required",
+      });
+    }
+
+    // Check if user already exists
+    const [existingUsers] = await pool.query(
+      "SELECT id FROM users WHERE email = ?",
+      [email]
+    );
+
+    if (existingUsers.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "User with this email already exists",
+      });
+    }
+
+    // Hash the password
+    const bcrypt = require('bcrypt');
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Generate a UUID for the user
+    const { v4: uuidv4 } = require('uuid');
+    const userId = uuidv4();
+
+    // Insert the new user
+    const [result] = await pool.query(
+      `INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)`,
+      [userId, name, email, hashedPassword, role || "user"]
+    );
+
+    console.log("User created successfully:", result);
+
+    // Return user data (excluding password)
+    const userData = {
+      id: userId,
+      username: name,
+      email: email,
+      role: role || "user",
+    };
+
+    res.status(201).json({
+      success: true,
+      message: "User created successfully",
+      user: userData,
+    });
+  } catch (error) {
+    console.error("Error creating user:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error creating user",
+      error: error.message,
+    });
+  }
+});
+
 // Debug endpoint to check database structure
 app.get("/api/debug/users", async (req, res) => {
   try {
