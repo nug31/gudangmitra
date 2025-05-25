@@ -61,7 +61,9 @@ class RequestService {
       console.log(`Fetching request ${id} from API...`);
       console.log(`API URL: ${API_URL}/requests/${id}`);
 
-      const response = await fetch(`${API_URL}/requests/${id}`);
+      // Add cache-busting parameter to ensure fresh data
+      const cacheBuster = Date.now();
+      const response = await fetch(`${API_URL}/requests/${id}?_t=${cacheBuster}`);
       console.log(`Response status: ${response.status}`);
 
       if (!response.ok) {

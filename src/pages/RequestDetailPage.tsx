@@ -102,12 +102,6 @@ const RequestDetailPage: React.FC = () => {
         }
 
         console.log("Found matching request:", requestData);
-        console.log("Request items:", requestData?.items);
-        console.log("Request structure check:", {
-          hasItems: !!(requestData?.items && requestData.items.length > 0),
-          itemsLength: requestData?.items?.length,
-          firstItem: requestData?.items?.[0]
-        });
 
         // Make sure requestData is not undefined before setting it
         if (requestData) {
@@ -284,8 +278,6 @@ const RequestDetailPage: React.FC = () => {
 
                   <div className="space-y-4">
                     {/* Display items from the new database structure */}
-                    {console.log("Rendering request:", request)}
-                    {console.log("Request items check:", request.items, request.items?.length)}
                     {request.items && request.items.length > 0 ? (
                       <div>
                         <p className="text-sm text-gray-500">Items Requested</p>

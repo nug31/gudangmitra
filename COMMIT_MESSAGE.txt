@@ -1,0 +1,10 @@
+Add bcrypt password support for all database users
+
+- Updated authentication to handle both plain text and bcrypt hashed passwords
+- Added bcrypt dependency to server package.json
+- Now supports login for all users in the database
+- Fixed authentication for manager@gudangmitra.com and other hashed password users
+
+Files changed:
+- server/railway-server.js (updated authentication logic)
+- server/package.json (added bcrypt dependency)
