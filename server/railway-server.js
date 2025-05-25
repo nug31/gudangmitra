@@ -511,6 +511,7 @@ app.post("/api/requests", async (req, res) => {
 
 // Update request status
 app.patch("/api/requests/:id/status", async (req, res) => {
+  let connection;
   try {
     const { id } = req.params;
     const { status, approved_by } = req.body;
@@ -536,15 +537,20 @@ app.patch("/api/requests/:id/status", async (req, res) => {
       });
     }
 
+    // Get a connection from the pool and start a transaction
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
     // First, check if the request exists
     console.log(`Checking if request exists with ID: ${id}`);
-    const [existingRequests] = await pool.query(`
+    const [existingRequests] = await connection.query(`
       SELECT id, status FROM requests WHERE id = ?
     `, [id]);
 
     console.log(`Found ${existingRequests.length} requests with ID ${id}:`, existingRequests);
 
     if (existingRequests.length === 0) {
+      await connection.rollback();
       console.log(`Request not found with ID: ${id}`);
       return res.status(404).json({
         success: false,
@@ -555,15 +561,60 @@ app.patch("/api/requests/:id/status", async (req, res) => {
 
     console.log(`Updating request ${id} from status "${existingRequests[0].status}" to "${status}"`);
 
-    // Update the request status (simplified version without item quantity updates for now)
-    const [updateResult] = await pool.query(
+    // If status is being set to "approved", update item quantities
+    if (status === "approved") {
+      console.log(`Request ${id} is being approved, updating item quantities...`);
+
+      // Get the items in the request
+      const [requestItems] = await connection.query(`
+        SELECT ri.*, i.name, i.quantity as current_quantity, i.minQuantity
+        FROM request_items ri
+        JOIN items i ON ri.item_id = i.id
+        WHERE ri.request_id = ?
+      `, [id]);
+
+      console.log(`Found ${requestItems.length} items in request ${id}:`, requestItems);
+
+      // Update each item's quantity
+      for (const item of requestItems) {
+        const newQuantity = Math.max(0, item.current_quantity - item.quantity);
+        console.log(`Updating item ${item.item_id} (${item.name}) quantity from ${item.current_quantity} to ${newQuantity}`);
+
+        // Calculate new status based on new quantity and minQuantity
+        let newStatus = "out-of-stock";
+        if (newQuantity > 0) {
+          newStatus = newQuantity <= item.minQuantity ? "low-stock" : "in-stock";
+        }
+
+        console.log(`Setting item ${item.item_id} status to: ${newStatus}`);
+
+        // Update the item quantity and status
+        const [itemUpdateResult] = await connection.query(`
+          UPDATE items
+          SET quantity = ?, status = ?, updatedAt = NOW()
+          WHERE id = ?
+        `, [newQuantity, newStatus, item.item_id]);
+
+        console.log(`Item ${item.item_id} update result:`, itemUpdateResult);
+
+        if (itemUpdateResult.affectedRows === 0) {
+          throw new Error(`Failed to update item ${item.item_id} quantity`);
+        }
+      }
+
+      console.log(`Successfully updated quantities for all items in request ${id}`);
+    }
+
+    // Update the request status
+    const [updateResult] = await connection.query(
       `UPDATE requests SET status = ?, updated_at = NOW() WHERE id = ?`,
       [status, id]
     );
 
-    console.log(`Update result:`, updateResult);
+    console.log(`Request status update result:`, updateResult);
 
     if (updateResult.affectedRows === 0) {
+      await connection.rollback();
       console.log(`No rows affected when updating request ${id}`);
       return res.status(404).json({
         success: false,
@@ -572,7 +623,9 @@ app.patch("/api/requests/:id/status", async (req, res) => {
       });
     }
 
-    console.log(`Successfully updated request ${id} status to ${status}`);
+    // Commit the transaction
+    await connection.commit();
+    console.log(`Successfully committed transaction for request ${id}`);
 
     // Fetch the updated request
     const [updatedRequest] = await pool.query(`
@@ -583,18 +636,35 @@ app.patch("/api/requests/:id/status", async (req, res) => {
       success: true,
       message: "Request status updated successfully",
       request: updatedRequest[0],
-      debug: `Updated ${updateResult.affectedRows} row(s)`
+      debug: `Updated ${updateResult.affectedRows} row(s)`,
+      itemsUpdated: status === "approved" ? "Item quantities reduced automatically" : "No item updates needed"
     });
 
   } catch (error) {
     console.error("Error updating request status:", error);
     console.error("Error stack:", error.stack);
+
+    // Rollback transaction if connection exists
+    if (connection) {
+      try {
+        await connection.rollback();
+        console.log("Transaction rolled back due to error");
+      } catch (rollbackError) {
+        console.error("Error rolling back transaction:", rollbackError);
+      }
+    }
+
     res.status(500).json({
       success: false,
       message: "Error updating request status",
       error: error.message,
       stack: process.env.NODE_ENV === 'production' ? null : error.stack
     });
+  } finally {
+    // Release connection back to pool
+    if (connection) {
+      connection.release();
+    }
   }
 });
 
