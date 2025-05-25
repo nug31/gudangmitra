@@ -230,11 +230,34 @@ app.get("/api/requests", async (req, res) => {
     console.log("GET /api/requests - Fetching all requests");
 
     const [requests] = await pool.query(`
-      SELECT * FROM requests
-      ORDER BY created_at DESC
+      SELECT r.*, u.name as requester_name, u.email as requester_email
+      FROM requests r
+      LEFT JOIN users u ON r.requester_id = u.id
+      ORDER BY r.created_at DESC
     `);
 
-    res.json(requests);
+    // Get items for each request
+    const requestsWithItems = await Promise.all(
+      requests.map(async (request) => {
+        const [items] = await pool.query(
+          `
+          SELECT ri.*, i.name, i.description, i.category
+          FROM request_items ri
+          JOIN items i ON ri.item_id = i.id
+          WHERE ri.request_id = ?
+        `,
+          [request.id]
+        );
+
+        return {
+          ...request,
+          items: items,
+        };
+      })
+    );
+
+    console.log(`Returning ${requestsWithItems.length} requests`);
+    res.json(requestsWithItems);
   } catch (error) {
     console.error("Error fetching requests:", error);
     res.status(500).json({
@@ -262,6 +285,43 @@ app.get("/api/users", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching users",
+      error: error.message,
+    });
+  }
+});
+
+// Get a single user by ID
+app.get("/api/users/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`GET /api/users/${id} - Fetching user details`);
+
+    const [users] = await pool.query(
+      "SELECT id, name, email, role FROM users WHERE id = ?",
+      [id]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const user = users[0];
+    const userData = {
+      id: user.id.toString(),
+      username: user.name,
+      email: user.email,
+      role: user.role || "user",
+    };
+
+    res.json(userData);
+  } catch (error) {
+    console.error(`Error fetching user with id ${req.params.id}:`, error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching user",
       error: error.message,
     });
   }
@@ -328,12 +388,34 @@ app.get("/api/requests/user/:userId", async (req, res) => {
     console.log(`GET /api/requests/user/${userId} - Fetching user requests`);
 
     const [requests] = await pool.query(`
-      SELECT * FROM requests
-      WHERE requester_id = ?
-      ORDER BY created_at DESC
+      SELECT r.*, u.name as requester_name, u.email as requester_email
+      FROM requests r
+      LEFT JOIN users u ON r.requester_id = u.id
+      WHERE r.requester_id = ?
+      ORDER BY r.created_at DESC
     `, [userId]);
 
-    res.json(requests);
+    // Get items for each request
+    const requestsWithItems = await Promise.all(
+      requests.map(async (request) => {
+        const [items] = await pool.query(
+          `
+          SELECT ri.*, i.name, i.description, i.category
+          FROM request_items ri
+          JOIN items i ON ri.item_id = i.id
+          WHERE ri.request_id = ?
+        `,
+          [request.id]
+        );
+
+        return {
+          ...request,
+          items: items,
+        };
+      })
+    );
+
+    res.json(requestsWithItems);
   } catch (error) {
     console.error("Error fetching user requests:", error);
     res.status(500).json({
@@ -351,8 +433,10 @@ app.get("/api/requests/:id", async (req, res) => {
     console.log(`GET /api/requests/${id} - Fetching request details`);
 
     const [requests] = await pool.query(`
-      SELECT * FROM requests
-      WHERE id = ?
+      SELECT r.*, u.name as requester_name, u.email as requester_email
+      FROM requests r
+      LEFT JOIN users u ON r.requester_id = u.id
+      WHERE r.id = ?
     `, [id]);
 
     if (requests.length === 0) {

@@ -172,10 +172,11 @@ class RequestService {
         apiRequest.requester_name ||
         currentUser?.username ||
         `User ${apiRequest.requester_id}`,
-      // Use the requester_email from the API response, or a consistent email format
+      // Use the requester_email from the API response - no fallback to fake email
       requesterEmail:
         apiRequest.requester_email ||
-        `user${apiRequest.requester_id}@example.com`,
+        currentUser?.email ||
+        "",
       items: apiRequest.items,
     };
 

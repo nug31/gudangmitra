@@ -16,8 +16,16 @@ class UserService {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
 
-      const users = await response.json();
-      console.log("Received users from API:", users);
+      const response_data = await response.json();
+      console.log("Received users from API:", response_data);
+
+      // Handle the API response format: {success: true, users: [...]}
+      const users = response_data.users || response_data;
+
+      if (!Array.isArray(users)) {
+        console.error("Users response is not an array:", users);
+        return [];
+      }
 
       return users.map((user: any) => ({
         id: user.id.toString(),
@@ -37,25 +45,18 @@ class UserService {
   async getUserById(id: string): Promise<User | undefined> {
     try {
       console.log(`Fetching user ${id} from API...`);
-      const response = await fetch(`${API_URL}/users/${id}`);
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.log(`User ${id} not found`);
-          return undefined;
-        }
-        throw new Error(`HTTP error! Status: ${response.status}`);
+      // Since individual user endpoint doesn't exist, get all users and find the one we need
+      const allUsers = await this.getAllUsers();
+      const user = allUsers.find(u => u.id.toString() === id.toString());
+
+      if (user) {
+        console.log("Found user:", user);
+        return user;
+      } else {
+        console.log(`User ${id} not found in users list`);
+        return undefined;
       }
-
-      const user = await response.json();
-      console.log("Received user from API:", user);
-
-      return {
-        id: user.id.toString(),
-        username: user.name || user.username,
-        email: user.email,
-        role: user.role,
-      };
     } catch (error) {
       console.error(`Error fetching user ${id}:`, error);
       return undefined;
