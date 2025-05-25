@@ -47,10 +47,14 @@ const RecentActivity: React.FC<RecentActivityProps> = ({ activities, isLoading }
   };
 
   const formatTimestamp = (timestamp: string) => {
+    if (!timestamp) return "Unknown";
+
     const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return "Invalid Date";
+
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
+
     if (diffInHours < 1) {
       const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
       return `${diffInMinutes}m ago`;

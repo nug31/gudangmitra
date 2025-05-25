@@ -188,8 +188,13 @@ const RequestDetailPage: React.FC = () => {
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return "N/A";
+
     // Create a date object from the UTC string
     const date = new Date(dateString);
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) return "Invalid Date";
 
     // Format in Indonesian timezone (WIB - UTC+7) - date only, no time
     return date.toLocaleDateString("en-US", {

@@ -144,7 +144,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ stats, isLoading }) => 
                   {stat.title}
                 </h3>
                 <p className={`text-2xl font-bold ${stat.textColor} group-hover:scale-105 transition-transform duration-300 inline-block`}>
-                  {stat.value.toLocaleString()}
+                  {(stat.value || 0).toLocaleString()}
                 </p>
                 {stat.subtitle && (
                   <p className="text-xs text-gray-600 mt-1 group-hover:text-gray-700 transition-colors duration-300">

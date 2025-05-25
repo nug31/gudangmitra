@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Button from "../ui/Button";
 import Logo from "../ui/Logo";
+import NotificationBell from "../notifications/NotificationBell";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const Navbar: React.FC = () => {
@@ -147,8 +148,11 @@ const Navbar: React.FC = () => {
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
             {isAuthenticated ? (
               <div className="relative ml-3 flex items-center">
-                <div className="flex items-center">
-                  <div className="mr-4 py-1 px-3 bg-gray-100 rounded-full text-sm font-medium text-gray-700">
+                <div className="flex items-center space-x-4">
+                  {/* Notification Bell */}
+                  <NotificationBell />
+
+                  <div className="py-1 px-3 bg-gray-100 rounded-full text-sm font-medium text-gray-700">
                     {user?.username}
                     <span className="ml-1 text-xs px-1.5 py-0.5 bg-primary-100 text-primary-800 rounded-md">
                       {user?.role}
@@ -190,7 +194,10 @@ const Navbar: React.FC = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="flex items-center sm:hidden">
+          <div className="flex items-center space-x-2 sm:hidden">
+            {/* Mobile Notification Bell */}
+            {isAuthenticated && <NotificationBell />}
+
             <button
               onClick={toggleMenu}
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"

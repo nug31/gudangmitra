@@ -47,10 +47,14 @@ const UserRecentActivity: React.FC<UserRecentActivityProps> = ({ activities, isL
   };
 
   const formatTimestamp = (timestamp: string) => {
+    if (!timestamp) return "Unknown";
+
     const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return "Invalid Date";
+
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
+
     if (diffInHours < 1) {
       return 'Just now';
     } else if (diffInHours < 24) {

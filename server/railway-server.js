@@ -721,6 +721,58 @@ app.post("/api/requests", async (req, res) => {
 
     console.log("Request created successfully:", response);
 
+    // Create notifications for admins/managers about the new request
+    try {
+      console.log("Creating notifications for admins about new request...");
+
+      // Get all admin and manager users
+      const [adminUsers] = await pool.query(`
+        SELECT id, name FROM users WHERE role IN ('admin', 'manager')
+      `);
+
+      console.log(`Found ${adminUsers.length} admin/manager users for notifications`);
+
+      // Create notification for each admin/manager
+      for (const admin of adminUsers) {
+        const { v4: uuidv4 } = require('uuid');
+        const notificationId = uuidv4();
+
+        await pool.query(`
+          INSERT INTO notifications (id, user_id, type, message, related_item_id, is_read, created_at)
+          VALUES (?, ?, 'request_submitted', ?, ?, 0, NOW())
+        `, [
+          notificationId,
+          admin.id,
+          `New request "${project_name}" requires your review`,
+          requestId
+        ]);
+
+        console.log(`Created notification for admin ${admin.name} (${admin.id})`);
+      }
+
+      // Also create a confirmation notification for the requester
+      if (requester_id) {
+        const { v4: uuidv4 } = require('uuid');
+        const requesterNotificationId = uuidv4();
+
+        await pool.query(`
+          INSERT INTO notifications (id, user_id, type, message, related_item_id, is_read, created_at)
+          VALUES (?, ?, 'request_submitted', ?, ?, 0, NOW())
+        `, [
+          requesterNotificationId,
+          requester_id,
+          `Your request "${project_name}" has been submitted and is pending review`,
+          requestId
+        ]);
+
+        console.log(`Created confirmation notification for requester ${requester_id}`);
+      }
+
+    } catch (notificationError) {
+      console.error("Error creating notifications:", notificationError);
+      // Don't fail the request creation if notifications fail
+    }
+
     res.status(201).json(response);
   } catch (error) {
     console.error("Error creating request:", error);
@@ -865,6 +917,70 @@ app.patch("/api/requests/:id/status", async (req, res) => {
     await connection.commit();
     console.log(`Successfully committed transaction for request ${id}`);
 
+    // Create notification for the requester about the status change
+    try {
+      console.log("Creating notification for requester about status change...");
+
+      // Get the request details to find the requester and project name
+      const [requestDetails] = await pool.query(`
+        SELECT requester_id, project_name FROM requests WHERE id = ?
+      `, [id]);
+
+      if (requestDetails.length > 0) {
+        const { requester_id, project_name } = requestDetails[0];
+
+        // Create appropriate notification message based on status
+        let notificationType = 'request_approved';
+        let message = '';
+
+        switch (status) {
+          case 'approved':
+            notificationType = 'request_approved';
+            message = `Your request "${project_name}" has been approved`;
+            break;
+          case 'denied':
+            notificationType = 'request_rejected';
+            message = `Your request "${project_name}" has been rejected`;
+            break;
+          case 'fulfilled':
+            notificationType = 'request_fulfilled';
+            message = `Your request "${project_name}" has been fulfilled`;
+            break;
+          case 'out_of_stock':
+            notificationType = 'request_rejected';
+            message = `Your request "${project_name}" cannot be fulfilled due to insufficient stock`;
+            break;
+          default:
+            // Don't send notification for pending status
+            console.log(`No notification needed for status: ${status}`);
+            break;
+        }
+
+        // Only create notification if we have a message (not for pending status)
+        if (message) {
+          const { v4: uuidv4 } = require('uuid');
+          const notificationId = uuidv4();
+
+          await pool.query(`
+            INSERT INTO notifications (id, user_id, type, message, related_item_id, is_read, created_at)
+            VALUES (?, ?, ?, ?, ?, 0, NOW())
+          `, [
+            notificationId,
+            requester_id,
+            notificationType,
+            message,
+            id
+          ]);
+
+          console.log(`Created notification for requester ${requester_id}: ${message}`);
+        }
+      }
+
+    } catch (notificationError) {
+      console.error("Error creating status change notification:", notificationError);
+      // Don't fail the status update if notification fails
+    }
+
     // Fetch the updated request
     const [updatedRequest] = await pool.query(`
       SELECT * FROM requests WHERE id = ?
@@ -903,6 +1019,176 @@ app.patch("/api/requests/:id/status", async (req, res) => {
     if (connection) {
       connection.release();
     }
+  }
+});
+
+// Notification endpoints
+
+// Get notifications for a user
+app.get("/api/notifications/user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`GET /api/notifications/user/${userId} - Fetching user notifications`);
+
+    const [notifications] = await pool.query(`
+      SELECT * FROM notifications
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `, [userId]);
+
+    console.log(`Found ${notifications.length} notifications for user ${userId}`);
+    res.json(notifications);
+  } catch (error) {
+    console.error("Error fetching user notifications:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching notifications",
+      error: error.message,
+    });
+  }
+});
+
+// Get unread notification count for a user
+app.get("/api/notifications/user/:userId/unread-count", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`GET /api/notifications/user/${userId}/unread-count - Fetching unread count`);
+
+    const [result] = await pool.query(`
+      SELECT COUNT(*) as count FROM notifications
+      WHERE user_id = ? AND is_read = 0
+    `, [userId]);
+
+    const count = result[0].count;
+    console.log(`User ${userId} has ${count} unread notifications`);
+    res.json({ count });
+  } catch (error) {
+    console.error("Error fetching unread notification count:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching unread count",
+      error: error.message,
+    });
+  }
+});
+
+// Create a new notification
+app.post("/api/notifications", async (req, res) => {
+  try {
+    console.log("POST /api/notifications - Creating new notification");
+    console.log("Request body:", req.body);
+
+    const { user_id, type, message, related_item_id } = req.body;
+
+    // Validate required fields
+    if (!user_id || !type || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "user_id, type, and message are required",
+      });
+    }
+
+    // Generate a UUID for the notification
+    const { v4: uuidv4 } = require('uuid');
+    const notificationId = uuidv4();
+
+    // Insert the notification
+    const [result] = await pool.query(`
+      INSERT INTO notifications (id, user_id, type, message, related_item_id, is_read, created_at)
+      VALUES (?, ?, ?, ?, ?, 0, NOW())
+    `, [notificationId, user_id, type, message, related_item_id || null]);
+
+    console.log("Notification created:", result);
+
+    // Fetch the created notification
+    const [notifications] = await pool.query(`
+      SELECT * FROM notifications WHERE id = ?
+    `, [notificationId]);
+
+    res.status(201).json(notifications[0]);
+  } catch (error) {
+    console.error("Error creating notification:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error creating notification",
+      error: error.message,
+    });
+  }
+});
+
+// Mark a notification as read
+app.patch("/api/notifications/:id/read", async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`PATCH /api/notifications/${id}/read - Marking notification as read`);
+
+    const [result] = await pool.query(`
+      UPDATE notifications SET is_read = 1 WHERE id = ?
+    `, [id]);
+
+    if (result.affectedRows > 0) {
+      res.json({ success: true, message: "Notification marked as read" });
+    } else {
+      res.status(404).json({ success: false, message: "Notification not found" });
+    }
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error marking notification as read",
+      error: error.message,
+    });
+  }
+});
+
+// Mark all notifications as read for a user
+app.patch("/api/notifications/user/:userId/mark-all-read", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`PATCH /api/notifications/user/${userId}/mark-all-read - Marking all notifications as read`);
+
+    const [result] = await pool.query(`
+      UPDATE notifications SET is_read = 1 WHERE user_id = ?
+    `, [userId]);
+
+    console.log(`Marked ${result.affectedRows} notifications as read for user ${userId}`);
+    res.json({
+      success: true,
+      message: "All notifications marked as read",
+      updated_count: result.affectedRows
+    });
+  } catch (error) {
+    console.error("Error marking all notifications as read:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error marking all notifications as read",
+      error: error.message,
+    });
+  }
+});
+
+// Delete a notification
+app.delete("/api/notifications/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`DELETE /api/notifications/${id} - Deleting notification`);
+
+    const [result] = await pool.query(`
+      DELETE FROM notifications WHERE id = ?
+    `, [id]);
+
+    if (result.affectedRows > 0) {
+      res.json({ success: true, message: "Notification deleted" });
+    } else {
+      res.status(404).json({ success: false, message: "Notification not found" });
+    }
+  } catch (error) {
+    console.error("Error deleting notification:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error deleting notification",
+      error: error.message,
+    });
   }
 });
 

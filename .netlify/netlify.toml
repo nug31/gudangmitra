@@ -10,10 +10,10 @@ headers = []
 publish = "C:\\Users\\nugro\\Downloads\\pastibisa\\1\\project\\dist"
 publishOrigin = "config"
 commandOrigin = "config"
-base = "C:\\Users\\nugro\\Downloads\\pastibisa\\1\\project"
 command = "npm run build"
 
 [build.environment]
+VITE_API_URL = "https://gudangmitra-production.up.railway.app/api"
 
 [build.processing]
 
