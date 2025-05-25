@@ -252,7 +252,7 @@ const RequestDetailPage: React.FC = () => {
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900 flex items-center">
                     <Package className="mr-2 h-6 w-6 text-blue-600" />
-                    Request for {request.itemName}
+                    {request.project_name || `Request for ${request.itemName}` || 'Request Details'}
                   </h1>
                   <p className="text-gray-600 mt-1">
                     <span className="font-medium">Request ID:</span>{" "}
@@ -277,15 +277,38 @@ const RequestDetailPage: React.FC = () => {
                   </h2>
 
                   <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Item</p>
-                      <p className="font-medium">{request.itemName}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm text-gray-500">Quantity</p>
-                      <p className="font-medium">{request.quantity}</p>
-                    </div>
+                    {/* Display items from the new database structure */}
+                    {request.items && request.items.length > 0 ? (
+                      <div>
+                        <p className="text-sm text-gray-500">Items Requested</p>
+                        <div className="space-y-2">
+                          {request.items.map((item: any, index: number) => (
+                            <div key={index} className="flex justify-between items-center bg-gray-50 p-2 rounded">
+                              <div>
+                                <p className="font-medium">{item.name}</p>
+                                <p className="text-sm text-gray-600">{item.description}</p>
+                                <p className="text-xs text-gray-500">Category: {item.category}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-medium">Qty: {item.quantity}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      // Fallback for old structure or if no items
+                      <>
+                        <div>
+                          <p className="text-sm text-gray-500">Item</p>
+                          <p className="font-medium">{request.itemName || request.project_name || 'Unknown Item'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Quantity</p>
+                          <p className="font-medium">{request.quantity || 'Not specified'}</p>
+                        </div>
+                      </>
+                    )}
 
                     <div>
                       <p className="text-sm text-gray-500">Priority</p>
@@ -295,10 +318,10 @@ const RequestDetailPage: React.FC = () => {
                       </Badge>
                     </div>
 
-                    {request.description && (
+                    {(request.reason || request.description) && (
                       <div>
                         <p className="text-sm text-gray-500">Description</p>
-                        <p className="font-medium">{request.description}</p>
+                        <p className="font-medium">{request.reason || request.description}</p>
                       </div>
                     )}
 
@@ -337,7 +360,7 @@ const RequestDetailPage: React.FC = () => {
                       <div>
                         <p className="font-medium">Created</p>
                         <p className="text-sm text-gray-600">
-                          {formatDate(request.createdAt)}
+                          {formatDate(request.created_at || request.createdAt)}
                         </p>
                       </div>
                     </div>
@@ -348,20 +371,20 @@ const RequestDetailPage: React.FC = () => {
                         <p className="font-medium">Requested Delivery Date</p>
                         <p className="text-sm text-gray-600">
                           {formatDate(
-                            request.requestedDeliveryDate || request.createdAt
+                            request.due_date || request.requestedDeliveryDate || request.created_at || request.createdAt
                           )}
                         </p>
                       </div>
                     </div>
 
-                    {request.updatedAt &&
-                      request.updatedAt !== request.createdAt && (
+                    {(request.updated_at || request.updatedAt) &&
+                      (request.updated_at || request.updatedAt) !== (request.created_at || request.createdAt) && (
                         <div className="flex items-start">
                           <Clock className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
                           <div>
                             <p className="font-medium">Last Updated</p>
                             <p className="text-sm text-gray-600">
-                              {formatDate(request.updatedAt)}
+                              {formatDate(request.updated_at || request.updatedAt)}
                             </p>
                           </div>
                         </div>
