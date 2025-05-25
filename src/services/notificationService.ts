@@ -1,4 +1,4 @@
-import { API_URL } from "../config";
+import { API_BASE_URL } from "../config";
 
 export interface Notification {
   id: string;
@@ -24,7 +24,7 @@ class NotificationService {
   async getUserNotifications(userId: string): Promise<Notification[]> {
     try {
       console.log(`Fetching notifications for user ${userId}...`);
-      const response = await fetch(`${API_URL}/notifications/user/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/notifications/user/${userId}`);
 
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
@@ -45,7 +45,7 @@ class NotificationService {
    */
   async getUnreadCount(userId: string): Promise<number> {
     try {
-      const response = await fetch(`${API_URL}/notifications/user/${userId}/unread-count`);
+      const response = await fetch(`${API_BASE_URL}/notifications/user/${userId}/unread-count`);
 
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
@@ -64,7 +64,7 @@ class NotificationService {
    */
   async markAsRead(notificationId: string): Promise<boolean> {
     try {
-      const response = await fetch(`${API_URL}/notifications/${notificationId}/read`, {
+      const response = await fetch(`${API_BASE_URL}/notifications/${notificationId}/read`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -87,7 +87,7 @@ class NotificationService {
    */
   async markAllAsRead(userId: string): Promise<boolean> {
     try {
-      const response = await fetch(`${API_URL}/notifications/user/${userId}/mark-all-read`, {
+      const response = await fetch(`${API_BASE_URL}/notifications/user/${userId}/mark-all-read`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -111,7 +111,7 @@ class NotificationService {
   async createNotification(notification: CreateNotificationRequest): Promise<Notification | null> {
     try {
       console.log("Creating notification:", notification);
-      const response = await fetch(`${API_URL}/notifications`, {
+      const response = await fetch(`${API_BASE_URL}/notifications`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -137,7 +137,7 @@ class NotificationService {
    */
   async deleteNotification(notificationId: string): Promise<boolean> {
     try {
-      const response = await fetch(`${API_URL}/notifications/${notificationId}`, {
+      const response = await fetch(`${API_BASE_URL}/notifications/${notificationId}`, {
         method: "DELETE",
       });
 
@@ -158,16 +158,16 @@ class NotificationService {
   async notifyAdminsOfNewRequest(requestId: string, projectName: string, requesterName: string): Promise<void> {
     try {
       console.log(`Creating admin notifications for new request: ${requestId}`);
-      
+
       // Get all admin and manager users
-      const response = await fetch(`${API_URL}/users`);
+      const response = await fetch(`${API_BASE_URL}/users`);
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
 
       const result = await response.json();
       const users = result.users || result;
-      const adminUsers = users.filter((user: any) => 
+      const adminUsers = users.filter((user: any) =>
         user.role === 'admin' || user.role === 'manager'
       );
 
@@ -191,14 +191,14 @@ class NotificationService {
    * Create notification for user when their request is approved/rejected
    */
   async notifyUserOfRequestUpdate(
-    userId: string, 
-    requestId: string, 
-    projectName: string, 
+    userId: string,
+    requestId: string,
+    projectName: string,
     status: 'approved' | 'rejected' | 'fulfilled'
   ): Promise<void> {
     try {
       console.log(`Creating user notification for request update: ${requestId}, status: ${status}`);
-      
+
       const statusMessages = {
         approved: `Your request "${projectName}" has been approved`,
         rejected: `Your request "${projectName}" has been rejected`,
@@ -207,7 +207,7 @@ class NotificationService {
 
       await this.createNotification({
         user_id: userId,
-        type: status === 'approved' ? 'request_approved' : 
+        type: status === 'approved' ? 'request_approved' :
               status === 'rejected' ? 'request_rejected' : 'request_fulfilled',
         message: statusMessages[status],
         related_item_id: requestId,
