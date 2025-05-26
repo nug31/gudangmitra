@@ -548,6 +548,215 @@ app.post("/api/users", async (req, res) => {
   }
 });
 
+// Update a user
+app.put("/api/users/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { username, email, password, role } = req.body;
+    console.log(`PUT /api/users/${id} - Updating user`);
+
+    // Validate role if provided
+    if (role) {
+      const validRoles = ["admin", "manager", "user"];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid role",
+        });
+      }
+    }
+
+    // Check if user exists
+    const [existingUsers] = await pool.query(
+      "SELECT * FROM users WHERE id = ?",
+      [id]
+    );
+    if (existingUsers.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Build update query dynamically
+    const updateFields = [];
+    const updateValues = [];
+
+    if (username) {
+      updateFields.push("name = ?");
+      updateValues.push(username);
+    }
+    if (email) {
+      updateFields.push("email = ?");
+      updateValues.push(email);
+    }
+    if (password) {
+      // Hash the password
+      const bcrypt = require('bcrypt');
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      updateFields.push("password = ?");
+      updateValues.push(hashedPassword);
+    }
+    if (role) {
+      updateFields.push("role = ?");
+      updateValues.push(role);
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No fields to update",
+      });
+    }
+
+    // Add the id to the values array for the WHERE clause
+    updateValues.push(id);
+
+    const query = `UPDATE users SET ${updateFields.join(", ")} WHERE id = ?`;
+    const [result] = await pool.query(query, updateValues);
+
+    if (result.affectedRows > 0) {
+      // Fetch the updated user (excluding password)
+      const [updatedUsers] = await pool.query(
+        "SELECT id, name, email, role FROM users WHERE id = ?",
+        [id]
+      );
+      const updatedUser = updatedUsers[0];
+
+      const userData = {
+        id: updatedUser.id.toString(),
+        username: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role || "user",
+      };
+
+      res.json({
+        success: true,
+        message: "User updated successfully",
+        user: userData,
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+  } catch (error) {
+    console.error(`Error updating user with id ${req.params.id}:`, error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating user",
+      error: error.message,
+    });
+  }
+});
+
+// Delete a user
+app.delete("/api/users/:id", async (req, res) => {
+  let connection;
+  try {
+    const { id } = req.params;
+    console.log(`DELETE /api/users/${id} - Deleting user`);
+
+    // Get a connection from the pool and start a transaction
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Check if user exists
+    const [existingUsers] = await connection.query(
+      "SELECT * FROM users WHERE id = ?",
+      [id]
+    );
+    if (existingUsers.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if user has any requests
+    const [userRequests] = await connection.query(
+      "SELECT COUNT(*) as count FROM requests WHERE requester_id = ?",
+      [id]
+    );
+
+    if (userRequests[0].count > 0) {
+      await connection.rollback();
+      console.log(`Cannot delete user ${id}: has ${userRequests[0].count} request(s)`);
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete this user because they have ${userRequests[0].count} existing request(s). Please handle their requests first.`,
+        error: "User has existing requests"
+      });
+    }
+
+    // Check if user has any notifications
+    const [userNotifications] = await connection.query(
+      "SELECT COUNT(*) as count FROM notifications WHERE user_id = ?",
+      [id]
+    );
+
+    // Delete user notifications first if any exist
+    if (userNotifications[0].count > 0) {
+      console.log(`Deleting ${userNotifications[0].count} notifications for user ${id}`);
+      await connection.query("DELETE FROM notifications WHERE user_id = ?", [id]);
+    }
+
+    // Delete the user
+    const [result] = await connection.query("DELETE FROM users WHERE id = ?", [id]);
+
+    // Commit the transaction
+    await connection.commit();
+
+    if (result.affectedRows > 0) {
+      console.log(`User ${id} deleted successfully`);
+      res.json({
+        success: true,
+        message: "User deleted successfully",
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: "Failed to delete user",
+      });
+    }
+  } catch (error) {
+    console.error(`Error deleting user with id ${req.params.id}:`, error);
+
+    // Rollback the transaction if there was an error
+    if (connection) {
+      try {
+        await connection.rollback();
+        console.log("Transaction rolled back due to error");
+      } catch (rollbackError) {
+        console.error("Error rolling back transaction:", rollbackError);
+      }
+    }
+
+    // Check if it's a foreign key constraint error
+    if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+      res.status(400).json({
+        success: false,
+        message: "Cannot delete user because they have existing requests or other references",
+        error: "Foreign key constraint violation"
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Error deleting user",
+        error: error.message,
+      });
+    }
+  } finally {
+    // Release connection back to pool
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
 // Debug endpoint to check database structure
 app.get("/api/debug/users", async (req, res) => {
   try {
