@@ -866,6 +866,83 @@ app.post("/api/requests", async (req, res) => {
   }
 });
 
+// Delete a request
+app.delete("/api/requests/:id", async (req, res) => {
+  let connection;
+  try {
+    const { id } = req.params;
+    console.log(`DELETE /api/requests/${id} - Deleting request`);
+
+    // Get a connection from the pool and start a transaction
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Check if request exists
+    const [existingRequests] = await connection.query(
+      "SELECT * FROM requests WHERE id = ?",
+      [id]
+    );
+    if (existingRequests.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Request not found",
+      });
+    }
+
+    // Delete request items first (due to foreign key constraint)
+    await connection.query(
+      "DELETE FROM request_items WHERE request_id = ?",
+      [id]
+    );
+
+    // Delete the request
+    const [result] = await connection.query(
+      "DELETE FROM requests WHERE id = ?",
+      [id]
+    );
+
+    // Commit the transaction
+    await connection.commit();
+
+    if (result.affectedRows > 0) {
+      console.log(`Request ${id} deleted successfully`);
+      res.json({
+        success: true,
+        message: "Request deleted successfully",
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: "Failed to delete request",
+      });
+    }
+  } catch (error) {
+    console.error(`Error deleting request with id ${req.params.id}:`, error);
+
+    // Rollback the transaction if there was an error
+    if (connection) {
+      try {
+        await connection.rollback();
+        console.log("Transaction rolled back due to error");
+      } catch (rollbackError) {
+        console.error("Error rolling back transaction:", rollbackError);
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Error deleting request",
+      error: error.message,
+    });
+  } finally {
+    // Release connection back to pool
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
 // Update request status
 app.patch("/api/requests/:id/status", async (req, res) => {
   let connection;
