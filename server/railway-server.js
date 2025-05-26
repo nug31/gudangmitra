@@ -285,6 +285,69 @@ app.put("/api/items/:id", async (req, res) => {
   }
 });
 
+// Delete an item
+app.delete("/api/items/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`DELETE /api/items/${id} - Deleting item`);
+
+    // Check if the item exists
+    const [existingItems] = await pool.query("SELECT * FROM items WHERE id = ?", [id]);
+
+    if (existingItems.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Item not found"
+      });
+    }
+
+    // Check if item is referenced in any requests
+    const [requestItems] = await pool.query(
+      "SELECT COUNT(*) as count FROM request_items WHERE item_id = ?",
+      [id]
+    );
+
+    if (requestItems[0].count > 0) {
+      // If item is referenced in requests, do a soft delete by setting a flag or status
+      // For now, we'll still allow deletion but log a warning
+      console.log(`Warning: Item ${id} is referenced in ${requestItems[0].count} request(s)`);
+    }
+
+    // Perform the deletion
+    const [result] = await pool.query("DELETE FROM items WHERE id = ?", [id]);
+
+    if (result.affectedRows > 0) {
+      console.log(`Item ${id} deleted successfully`);
+      res.json({
+        success: true,
+        message: "Item deleted successfully"
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        message: "Item not found"
+      });
+    }
+  } catch (error) {
+    console.error("Error deleting item:", error);
+
+    // Check if it's a foreign key constraint error
+    if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+      res.status(400).json({
+        success: false,
+        message: "Cannot delete item because it is referenced in existing requests",
+        error: "Foreign key constraint violation"
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Error deleting item",
+        error: error.message,
+      });
+    }
+  }
+});
+
 // Get unique categories
 app.get("/api/categories", async (req, res) => {
   try {
