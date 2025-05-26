@@ -174,16 +174,27 @@ class ItemService {
 
       if (!response.ok) {
         if (response.status === 404) {
-          return false;
+          throw new Error("Item not found");
         }
-        throw new Error(`HTTP error! Status: ${response.status}`);
+
+        // Try to get the error message from the response
+        try {
+          const errorData = await response.json();
+          if (response.status === 400 && errorData.message) {
+            throw new Error(errorData.message);
+          }
+        } catch (parseError) {
+          // If we can't parse the error response, use a generic message
+        }
+
+        throw new Error(`Failed to delete item (Status: ${response.status})`);
       }
 
       const result = await response.json();
       return result.success;
     } catch (error) {
       console.error(`Error deleting item with id ${id}:`, error);
-      return false;
+      throw error; // Re-throw the error so the UI can handle it properly
     }
   }
 

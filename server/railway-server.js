@@ -308,9 +308,13 @@ app.delete("/api/items/:id", async (req, res) => {
     );
 
     if (requestItems[0].count > 0) {
-      // If item is referenced in requests, do a soft delete by setting a flag or status
-      // For now, we'll still allow deletion but log a warning
-      console.log(`Warning: Item ${id} is referenced in ${requestItems[0].count} request(s)`);
+      // If item is referenced in requests, prevent deletion
+      console.log(`Cannot delete item ${id}: referenced in ${requestItems[0].count} request(s)`);
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete this item because it is referenced in ${requestItems[0].count} existing request(s). Please remove it from all requests first.`,
+        error: "Item is referenced in requests"
+      });
     }
 
     // Perform the deletion

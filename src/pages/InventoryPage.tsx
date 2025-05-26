@@ -193,12 +193,15 @@ const InventoryPage: React.FC = () => {
       const success = await itemService.deleteItem(id);
       if (success) {
         setItems((prev) => prev.filter((item) => item.id !== id));
+        setError(null); // Clear any previous errors
       } else {
         setError("Failed to delete item");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error deleting item:", err);
-      setError("Failed to delete item");
+      // Show the specific error message from the server
+      const errorMessage = err.message || "Failed to delete item";
+      setError(errorMessage);
     }
   };
 
