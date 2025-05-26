@@ -7,8 +7,6 @@ import RequestList from "../components/requests/RequestList";
 import Alert from "../components/ui/Alert";
 import Button from "../components/ui/Button";
 import { LogIn, ClipboardList } from "lucide-react";
-import { API_BASE_URL } from "../config";
-
 const RequestsPage: React.FC = () => {
   const { user, isAuthenticated, isAdmin } = useAuth();
   const [requests, setRequests] = useState<ItemRequest[]>([]);
@@ -36,63 +34,19 @@ const RequestsPage: React.FC = () => {
     try {
       console.log("Fetching requests, isAdmin:", isAdmin, "user:", user);
 
-      // Direct API call to fetch requests
-      console.log("Fetching from API URL:", `${API_BASE_URL}/requests`);
-
-      const response = await fetch(`${API_BASE_URL}/requests`);
-      console.log("Response status:", response.status);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+      let requestData;
+      if (isAdmin) {
+        // Admin sees all requests
+        requestData = await requestService.getAllRequests();
+      } else if (user) {
+        // Regular users see only their requests
+        requestData = await requestService.getUserRequests(user.id);
+      } else {
+        requestData = [];
       }
 
-      const data = await response.json();
-      console.log("Raw API response:", data);
-
-      // Map the API response to our ItemRequest type
-      const mappedRequests = data.map((apiRequest: any) => {
-        const firstItem =
-          apiRequest.items && apiRequest.items.length > 0
-            ? apiRequest.items[0]
-            : null;
-
-        return {
-          id: apiRequest.id,
-          userId: apiRequest.requester_id,
-          itemId: firstItem ? firstItem.item_id.toString() : "",
-          itemName: firstItem ? firstItem.name : apiRequest.project_name,
-          quantity: firstItem ? firstItem.quantity : 1,
-          priority: apiRequest.priority,
-          status: apiRequest.status,
-          description: apiRequest.reason || "",
-          requestedDeliveryDate: apiRequest.due_date || "",
-          createdAt: apiRequest.created_at || new Date().toISOString(),
-          updatedAt: apiRequest.updated_at || new Date().toISOString(),
-          projectName: apiRequest.project_name,
-          requesterName:
-            apiRequest.requester_name || `User ${apiRequest.requester_id}`,
-          requesterEmail:
-            apiRequest.requester_email ||
-            `user${apiRequest.requester_id}@example.com`,
-          items: apiRequest.items,
-        };
-      });
-
-      console.log("Mapped requests:", mappedRequests);
-
-      // Filter requests based on user role
-      let filteredRequests = mappedRequests || [];
-
-      // If user is not an admin or manager, only show their requests
-      if (!isAdmin && user) {
-        console.log("Filtering requests for user ID:", user.id);
-        filteredRequests = filteredRequests.filter(
-          (req) => req.userId === user.id
-        );
-        console.log("Filtered requests for user:", filteredRequests);
-      }
-
-      setRequests(filteredRequests);
+      console.log("Received requests from requestService:", requestData);
+      setRequests(requestData || []);
     } catch (err) {
       setError("Failed to load requests. Please try again.");
       console.error("Error fetching requests:", err);
@@ -146,6 +100,15 @@ const RequestsPage: React.FC = () => {
               ? "Manage and review all item requests."
               : "Track and manage your item requests."}
           </p>
+        </div>
+        <div className="mt-4 sm:mt-0">
+          <Button
+            variant="outline"
+            onClick={fetchRequests}
+            disabled={loading}
+          >
+            Refresh
+          </Button>
         </div>
       </div>
 
