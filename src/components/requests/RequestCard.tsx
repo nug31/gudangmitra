@@ -145,6 +145,19 @@ const RequestCard: React.FC<RequestCardProps> = ({
                   )}
                 </>
               )}
+
+              {/* Admin delete button - show for any status */}
+              {isAdmin && onDelete && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<Trash2 className="h-4 w-4" />}
+                  onClick={() => onDelete(id)}
+                >
+                  Delete
+                </Button>
+              )}
+
               <Button
                 variant="outline"
                 size="sm"

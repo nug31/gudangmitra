@@ -117,12 +117,17 @@ const RequestsPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Are you sure you want to cancel this request?")) {
+    const confirmMessage = isAdmin
+      ? "Are you sure you want to delete this request? This action cannot be undone."
+      : "Are you sure you want to cancel this request?";
+
+    if (window.confirm(confirmMessage)) {
       try {
         await requestService.deleteRequest(id);
         setRequests((prev) => prev.filter((req) => req.id !== id));
-      } catch (err) {
-        setError("Failed to delete request. Please try again.");
+      } catch (err: any) {
+        const errorMessage = err.message || "Failed to delete request. Please try again.";
+        setError(errorMessage);
         console.error("Error deleting request:", err);
       }
     }
@@ -159,7 +164,7 @@ const RequestsPage: React.FC = () => {
         requests={requests}
         isAdmin={isAdmin}
         onStatusChange={isAdmin ? handleStatusChange : undefined}
-        onDelete={!isAdmin ? handleDelete : undefined}
+        onDelete={handleDelete}
         isLoading={loading}
       />
     </MainLayout>
