@@ -94,7 +94,7 @@ const Footer: React.FC = () => {
         {/* Copyright and Developer Info */}
         <div className="border-t border-gray-200 pt-4 flex flex-col md:flex-row justify-between items-center text-center md:text-left">
           <p className="text-sm text-gray-500 mb-2 md:mb-0">
-            &copy; {currentYear} Gudang Mitra. All rights reserved.
+            &copy; {currentYear} Gudang Mitra.
           </p>
           <p className="text-sm text-gray-500">
             Developed by{" "}
