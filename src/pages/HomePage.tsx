@@ -163,7 +163,7 @@ const HomePage: React.FC = () => {
               </div>
 
               {/* Quick Actions */}
-              <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className={`mb-6 grid grid-cols-1 ${user?.role === "manager" ? "md:grid-cols-3" : "md:grid-cols-2"} gap-4`}>
                 <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-shadow duration-200">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -202,24 +202,27 @@ const HomePage: React.FC = () => {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-shadow duration-200">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">
-                          User Management
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-4">
-                          Manage user accounts and permissions
-                        </p>
-                        <Button variant="primary" href="/users" size="sm">
-                          Manage Users
-                        </Button>
+                {/* Only show User Management for managers */}
+                {user?.role === "manager" && (
+                  <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-shadow duration-200">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">
+                            User Management
+                          </h3>
+                          <p className="text-sm text-gray-600 mb-4">
+                            Manage user accounts and permissions
+                          </p>
+                          <Button variant="primary" href="/users" size="sm">
+                            Manage Users
+                          </Button>
+                        </div>
+                        <Users className="h-12 w-12 text-purple-600" />
                       </div>
-                      <Users className="h-12 w-12 text-purple-600" />
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </>
           )}

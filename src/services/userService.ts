@@ -93,6 +93,108 @@ class UserService {
       return undefined;
     }
   }
+
+  /**
+   * Create a new user
+   */
+  async createUser(userData: {
+    name: string;
+    email: string;
+    password: string;
+    role?: string;
+  }): Promise<User> {
+    try {
+      console.log("Creating new user via API...");
+      const response = await fetch(`${API_URL}/users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("User created successfully:", result);
+
+      return {
+        id: result.user.id.toString(),
+        username: result.user.username,
+        email: result.user.email,
+        role: result.user.role,
+      };
+    } catch (error) {
+      console.error("Error creating user:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update an existing user
+   */
+  async updateUser(id: string, userData: {
+    username?: string;
+    email?: string;
+    password?: string;
+    role?: string;
+  }): Promise<User> {
+    try {
+      console.log(`Updating user ${id} via API...`);
+      const response = await fetch(`${API_URL}/users/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("User updated successfully:", result);
+
+      return {
+        id: result.user.id.toString(),
+        username: result.user.username,
+        email: result.user.email,
+        role: result.user.role,
+      };
+    } catch (error) {
+      console.error(`Error updating user ${id}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a user
+   */
+  async deleteUser(id: string): Promise<boolean> {
+    try {
+      console.log(`Deleting user ${id} via API...`);
+      const response = await fetch(`${API_URL}/users/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("User deleted successfully:", result);
+      return result.success;
+    } catch (error) {
+      console.error(`Error deleting user ${id}:`, error);
+      throw error;
+    }
+  }
 }
 
 export const userService = new UserService();

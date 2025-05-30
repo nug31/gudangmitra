@@ -17,10 +17,10 @@ import Input from "../components/ui/Input";
 import Select from "../components/ui/Select";
 import { User } from "../types";
 import UserFormModal from "../components/users/UserFormModal";
-import { API_BASE_URL } from "../config";
+import { userService } from "../services/userService";
 
 const UsersPage: React.FC = () => {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { user, isAuthenticated, isAdmin } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,28 +30,19 @@ const UsersPage: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
   useEffect(() => {
-    if (isAuthenticated && isAdmin) {
+    if (isAuthenticated && user?.role === "manager") {
       fetchUsers();
     } else {
       setLoading(false);
     }
-  }, [isAuthenticated, isAdmin]);
+  }, [isAuthenticated, user]);
 
   const fetchUsers = async () => {
     setLoading(true);
     setError(null);
     try {
-      // Fetch users from API
-      const response = await fetch(`${API_BASE_URL}/users`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch users");
-      }
-      const data = await response.json();
-      if (data.success && data.users) {
-        setUsers(data.users);
-      } else {
-        setUsers(data);
-      }
+      const users = await userService.getAllUsers();
+      setUsers(users);
     } catch (err) {
       setError("Failed to load users. Please try again.");
       console.error("Error fetching users:", err);
@@ -131,22 +122,12 @@ const UsersPage: React.FC = () => {
     }
 
     try {
-      // Delete user from API
-      const response = await fetch(
-        `${API_BASE_URL}/users/${userId}`,
-        {
-          method: "DELETE",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete user");
-      }
-
+      await userService.deleteUser(userId);
       // Remove user from state
       setUsers(users.filter((user) => user.id !== userId));
-    } catch (err) {
-      setError("Failed to delete user. Please try again.");
+    } catch (err: any) {
+      const errorMessage = err.message || "Failed to delete user. Please try again.";
+      setError(errorMessage);
       console.error("Error deleting user:", err);
     }
   };
@@ -174,12 +155,12 @@ const UsersPage: React.FC = () => {
     setRoleFilter("all");
   };
 
-  if (!isAuthenticated || !isAdmin) {
+  if (!isAuthenticated || user?.role !== "manager") {
     return (
       <MainLayout>
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <Alert variant="error" title="Access Denied">
-            You do not have permission to access this page.
+            You do not have permission to access this page. Only managers can access user management.
           </Alert>
         </div>
       </MainLayout>

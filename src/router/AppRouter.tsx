@@ -24,14 +24,19 @@ import UsersPage from "../pages/UsersPage";
 const ProtectedRoute: React.FC<{
   element: React.ReactElement;
   requireAdmin?: boolean;
-}> = ({ element, requireAdmin = false }) => {
-  const { isAuthenticated, isAdmin } = useAuth();
+  requireManager?: boolean;
+}> = ({ element, requireAdmin = false, requireManager = false }) => {
+  const { user, isAuthenticated, isAdmin } = useAuth();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
   if (requireAdmin && !isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (requireManager && user?.role !== "manager") {
     return <Navigate to="/" replace />;
   }
 
@@ -85,7 +90,7 @@ const AppRouter: React.FC = () => {
         <Route
           path="/users"
           element={
-            <ProtectedRoute element={<UsersPage />} requireAdmin={true} />
+            <ProtectedRoute element={<UsersPage />} requireManager={true} />
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
