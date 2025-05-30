@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Item, ItemCategory, ItemRequest } from "../types";
 import MainLayout from "../components/layout/MainLayout";
 import { Card, CardContent } from "../components/ui/Card";
@@ -24,6 +25,7 @@ import { normalizeCategory, categoriesAreEqual } from "../utils/categoryUtils";
 
 const BrowseItemsPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -288,7 +290,8 @@ const BrowseItemsPage: React.FC = () => {
           onClose={() => setSelectedItem(null)}
           onSuccess={(request: ItemRequest) => {
             console.log("Request created:", request);
-            // You could add additional logic here if needed
+            // The RequestItemModal will handle navigation automatically
+            // No additional logic needed here since modal handles the redirect
           }}
         />
       )}

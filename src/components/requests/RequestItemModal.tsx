@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Item, ItemRequest, RequestPriority } from "../../types";
 import { requestService } from "../../services/requestService";
 import { useAuth } from "../../contexts/AuthContext";
@@ -22,6 +23,7 @@ const RequestItemModal: React.FC<RequestItemModalProps> = ({
   onSuccess,
 }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
   const [priority, setPriority] = useState<RequestPriority>("medium");
   const [description, setDescription] = useState("");
@@ -127,10 +129,11 @@ const RequestItemModal: React.FC<RequestItemModalProps> = ({
           onSuccess(newRequest);
         }
 
-        // Close modal after 2 seconds on success
+        // Close modal and navigate to requests page after 1.5 seconds
         setTimeout(() => {
           onClose();
-        }, 2000);
+          navigate('/requests');
+        }, 1500);
       } catch (requestError) {
         console.error("Error from requestService.createRequest:", requestError);
         setError((requestError as Error).message || "Failed to create request");
@@ -180,7 +183,7 @@ const RequestItemModal: React.FC<RequestItemModalProps> = ({
 
         {success && (
           <Alert variant="success" title="Success" className="mb-4">
-            Your request has been submitted successfully.
+            Your request has been submitted successfully. Redirecting to your requests page...
           </Alert>
         )}
 

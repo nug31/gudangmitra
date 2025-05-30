@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { ItemRequest, RequestPriority, Item } from "../../types";
 import { requestService } from "../../services/requestService";
 import { useAuth } from "../../contexts/AuthContext";
@@ -21,6 +22,7 @@ const RequestForm: React.FC<RequestFormProps> = ({
   selectedItem,
 }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [itemName, setItemName] = useState("");
   const [itemId, setItemId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -99,6 +101,11 @@ const RequestForm: React.FC<RequestFormProps> = ({
       if (onSuccess) {
         onSuccess(newRequest);
       }
+
+      // Navigate to requests page after successful submission
+      setTimeout(() => {
+        navigate('/requests');
+      }, 2000);
     } catch (err) {
       console.error("Error submitting request:", err);
       setError((err as Error).message);
@@ -166,7 +173,7 @@ const RequestForm: React.FC<RequestFormProps> = ({
             onDismiss={() => setSuccess(false)}
             className="mb-4"
           >
-            Your request has been submitted and is pending approval.
+            Your request has been submitted and is pending approval. Redirecting to your requests page...
           </Alert>
         )}
 
