@@ -88,74 +88,74 @@ const ChatInput: React.FC<ChatInputProps> = ({
         </Button>
       </div>
 
-      {/* Quick Actions - Bilingual */}
+      {/* Quick Actions - App Information */}
       <div className="mt-2 flex flex-wrap gap-2">
         {/* Indonesian Quick Actions */}
         <button
           type="button"
-          onClick={() => setMessage("Apa saja barang yang tersedia saat ini?")}
+          onClick={() => setMessage("Siapa yang membuat aplikasi ini?")}
           disabled={disabled}
           className="px-3 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full transition-colors"
         >
-          🇮🇩 Barang tersedia?
+          🇮🇩 Siapa developer?
         </button>
         <button
           type="button"
-          onClick={() => setMessage("Tampilkan barang yang stoknya rendah")}
-          disabled={disabled}
-          className="px-3 py-1 text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-full transition-colors"
-        >
-          🇮🇩 Stok rendah
-        </button>
-        <button
-          type="button"
-          onClick={() => setMessage("Apa saja produk elektronik yang ada?")}
+          onClick={() => setMessage("Apa kegunaan aplikasi Gudang Mitra?")}
           disabled={disabled}
           className="px-3 py-1 text-xs bg-green-50 hover:bg-green-100 text-green-700 rounded-full transition-colors"
         >
-          🇮🇩 Elektronik
+          🇮🇩 Kegunaan aplikasi
         </button>
         <button
           type="button"
-          onClick={() => setMessage("Bantu saya cari perlengkapan kantor")}
+          onClick={() => setMessage("Bagaimana cara menggunakan aplikasi ini?")}
           disabled={disabled}
           className="px-3 py-1 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-full transition-colors"
         >
-          🇮🇩 Perlengkapan kantor
+          🇮🇩 Cara penggunaan
+        </button>
+        <button
+          type="button"
+          onClick={() => setMessage("Apa saja fitur yang tersedia?")}
+          disabled={disabled}
+          className="px-3 py-1 text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-full transition-colors"
+        >
+          🇮🇩 Fitur aplikasi
         </button>
 
         {/* English Quick Actions */}
         <button
           type="button"
-          onClick={() => setMessage("What items are currently in stock?")}
+          onClick={() => setMessage("Who developed this application?")}
           disabled={disabled}
           className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors"
         >
-          🇺🇸 What's in stock?
+          🇺🇸 Who's the developer?
         </button>
         <button
           type="button"
-          onClick={() => setMessage("Show me items that are running low")}
+          onClick={() => setMessage("Why should I use this app?")}
           disabled={disabled}
           className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors"
         >
-          🇺🇸 Low stock items
+          🇺🇸 Why use this app?
         </button>
         <button
           type="button"
-          onClick={() => setMessage("What electronics do you have?")}
+          onClick={() => setMessage("How do I use this application?")}
           disabled={disabled}
           className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors"
         >
-          🇺🇸 Electronics
+          🇺🇸 How to use
         </button>
         <button
           type="button"
-          onClick={() => setMessage("Help me find office supplies")}
+          onClick={() => setMessage("What features are available?")}
           disabled={disabled}
           className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors"
         >
-          🇺🇸 Office supplies
+          🇺🇸 App features
         </button>
       </div>
     </form>

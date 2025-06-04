@@ -201,7 +201,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <ChatInput
           onSendMessage={handleSendMessage}
           disabled={isLoading}
-          placeholder="Tanyakan tentang barang di inventori... / Ask about inventory items..."
+          placeholder="Tanyakan tentang aplikasi, developer, atau cara penggunaan... / Ask about the app, developer, or how to use..."
         />
       </div>
     </div>

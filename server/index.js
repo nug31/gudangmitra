@@ -1956,58 +1956,80 @@ app.post("/api/chat", async (req, res) => {
 
     console.log("Chat request:", { message, sessionId });
 
-    // Get items context for AI
-    const [items] = await pool.query(`
-      SELECT id, name, description, category, quantity, minQuantity, status, price
-      FROM items
-      WHERE isActive = 1
-      ORDER BY name
-    `);
-
-    // Create context about available items
-    const itemsContext = items.map(item => ({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      category: item.category,
-      quantity: item.quantity,
-      minQuantity: item.minQuantity,
-      status: item.status || (item.quantity <= 0 ? "out-of-stock" :
-              item.quantity <= item.minQuantity ? "low-stock" : "in-stock"),
-      price: item.price
-    }));
-
     // Detect language from user message
-    const isIndonesian = /[\u0100-\u017F]|apa|yang|ada|barang|stok|tersedia|item|produk|kategori|harga|jumlah|saya|bisa|tolong|bantuan|cari|lihat|mana|dimana|berapa|kapan|bagaimana|kenapa|siapa/i.test(message);
+    const isIndonesian = /[\u0100-\u017F]|apa|yang|ada|siapa|kenapa|bagaimana|mengapa|dimana|kapan|saya|bisa|tolong|bantuan|aplikasi|sistem|developer|pembuat|cara|gunakan|pakai|manfaat|kegunaan|fitur/i.test(message);
 
-    // Create system prompt with items context (bilingual)
-    const systemPrompt = `You are a helpful AI assistant for an inventory management system called "Gudang Mitra".
-You help users find information about items in the inventory, check availability, compare products, and answer questions about stock levels.
+    // Create system prompt focused on app information (bilingual)
+    const systemPrompt = `You are a helpful AI assistant for "Gudang Mitra" - an inventory management system.
+You provide information about the application, its developer, features, and how to use it.
 
 IMPORTANT: ${isIndonesian ? 'Respond in Bahasa Indonesia (Indonesian language)' : 'Respond in English'}.
 
-Current inventory items:
-${JSON.stringify(itemsContext, null, 2)}
+Application Information:
+- Name: Gudang Mitra (Mitra Warehouse)
+- Type: Professional Inventory Management System
+- Developer: Nug (GitHub: @nug31)
+- Purpose: Modern inventory management for businesses and organizations
+- Technology: React + Node.js + MySQL
+- Features: Item management, request system, user management, real-time dashboard, AI chat assistant
+
+Key Features:
+${isIndonesian ? `
+1. Manajemen Inventori - Kelola barang dengan mudah
+2. Sistem Permintaan - Buat dan kelola permintaan barang
+3. Dashboard Real-time - Lihat statistik dan aktivitas terkini
+4. Manajemen Pengguna - Kelola akses pengguna (Admin/Manager/User)
+5. Ekspor Excel - Export data ke format Excel
+6. Notifikasi - Sistem notifikasi untuk permintaan dan persetujuan
+7. Chat AI - Asisten AI untuk bantuan penggunaan aplikasi
+8. Multi-bahasa - Mendukung Bahasa Indonesia dan Inggris
+` : `
+1. Inventory Management - Easily manage items and stock
+2. Request System - Create and manage item requests
+3. Real-time Dashboard - View statistics and recent activities
+4. User Management - Manage user access (Admin/Manager/User)
+5. Excel Export - Export data to Excel format
+6. Notifications - Notification system for requests and approvals
+7. AI Chat - AI assistant for application help
+8. Multi-language - Supports Indonesian and English
+`}
+
+How to Use:
+${isIndonesian ? `
+1. Login - Masuk dengan akun yang telah disediakan
+2. Dashboard - Lihat ringkasan inventori dan aktivitas
+3. Browse Items - Jelajahi daftar barang yang tersedia
+4. Request Items - Buat permintaan barang yang dibutuhkan
+5. Inventory (Admin) - Kelola barang, tambah/edit/hapus item
+6. Users (Manager) - Kelola pengguna dan hak akses
+7. Chat AI - Gunakan asisten AI untuk bantuan
+` : `
+1. Login - Sign in with provided account
+2. Dashboard - View inventory summary and activities
+3. Browse Items - Explore available items list
+4. Request Items - Create requests for needed items
+5. Inventory (Admin) - Manage items, add/edit/delete
+6. Users (Manager) - Manage users and access rights
+7. AI Chat - Use AI assistant for help
+`}
 
 Guidelines:
 ${isIndonesian ? `
 - Bersikap ramah dan membantu
-- Berikan informasi akurat tentang barang berdasarkan data inventori saat ini
-- Jika ditanya tentang barang tertentu, periksa data inventori
-- Bantu pengguna memahami status stok (tersedia, stok rendah, habis)
-- Sarankan alternatif jika barang yang diminta habis
-- Format respons dengan jelas dan ringkas
-- Jika tidak memiliki informasi tentang sesuatu, katakan dengan jelas
-- Gunakan istilah yang mudah dipahami dalam Bahasa Indonesia
-- Untuk status stok: "tersedia" (in-stock), "stok rendah" (low-stock), "habis" (out-of-stock)
+- Berikan informasi tentang aplikasi, developer, dan cara penggunaan
+- Jelaskan fitur-fitur aplikasi dengan detail
+- Bantu pengguna memahami cara menggunakan sistem
+- Jika ditanya tentang developer, sebutkan bahwa aplikasi dibuat oleh Nug
+- Format respons dengan jelas dan mudah dipahami
+- Fokus pada informasi aplikasi, bukan data inventori
 ` : `
 - Be helpful and friendly
-- Provide accurate information about items based on the current inventory
-- If asked about specific items, check the inventory data
-- Help users understand stock levels (in-stock, low-stock, out-of-stock)
-- Suggest alternatives if requested items are out of stock
-- Format responses clearly and concisely
-- If you don't have information about something, say so clearly
+- Provide information about the app, developer, and usage
+- Explain application features in detail
+- Help users understand how to use the system
+- If asked about developer, mention the app was created by Nug
+- Format responses clearly and understandably
+- Focus on application information, not inventory data
 `}`;
 
     // Prepare messages for OpenAI

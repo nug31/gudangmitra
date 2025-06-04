@@ -92,10 +92,10 @@ const ChatPage: React.FC = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Asisten AI / AI Assistant</h1>
           <p className="text-gray-600">
-            Chat dengan asisten AI kami untuk mendapatkan bantuan tentang barang inventori, tingkat stok, dan lainnya.
+            Chat dengan asisten AI untuk mengetahui tentang aplikasi, developer, dan cara penggunaan sistem.
           </p>
           <p className="text-gray-500 text-sm mt-1">
-            Chat with our AI assistant to get help with inventory items, stock levels, and more.
+            Chat with our AI assistant to learn about the app, developer, and how to use the system.
           </p>
         </div>
 
