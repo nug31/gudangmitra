@@ -31,8 +31,8 @@ Fitur ekspor yang canggih memungkinkan user untuk mengunduh data permintaan dala
 **8. Manajemen User Khusus Manager**
 Fitur manajemen user yang eksklusif untuk manager memungkinkan pengelolaan akun user, pengaturan peran, dan monitoring aktivitas user dalam sistem.
 
-**9. AI Chat Assistant Terintegrasi**
-Aplikasi dilengkapi dengan asisten AI berbasis OpenAI GPT-3.5-turbo yang dapat membantu user dalam mencari informasi inventori, mengecek ketersediaan barang, memberikan rekomendasi produk, dan menjawab pertanyaan terkait stok secara real-time. Fitur ini dapat diakses melalui floating chat button yang tersedia di semua halaman atau melalui halaman chat khusus.
+**9. Sistem Pencarian dan Filter Canggih**
+Aplikasi dilengkapi dengan sistem pencarian dan filter yang memungkinkan user untuk dengan mudah menemukan barang berdasarkan nama, kategori, atau status ketersediaan. Fitur ini meningkatkan efisiensi dalam browsing katalog inventori.
 
 ### Teknologi yang Digunakan
 
@@ -48,7 +48,7 @@ Aplikasi dilengkapi dengan asisten AI berbasis OpenAI GPT-3.5-turbo yang dapat m
 - MySQL sebagai database utama
 - Railway untuk hosting database cloud
 - RESTful API architecture
-- OpenAI GPT-3.5-turbo untuk AI chat functionality
+- Sistem notifikasi real-time
 
 **Deployment:**
 - Netlify untuk hosting frontend
@@ -77,8 +77,8 @@ Arsitektur cloud-native memungkinkan aplikasi untuk dengan mudah diskalakan sesu
 **5. Maintenance yang Mudah**
 Kode yang terstruktur dengan baik menggunakan TypeScript dan pola desain modern memudahkan maintenance dan pengembangan fitur baru.
 
-**6. Integrasi AI yang Canggih**
-Implementasi AI chat assistant yang menggunakan teknologi OpenAI terdepan, memberikan pengalaman interaktif yang natural dan membantu user dalam mengelola inventori dengan lebih efisien.
+**6. Optimasi Performa**
+Implementasi lazy loading, caching yang efisien, dan optimasi database query untuk memastikan aplikasi berjalan dengan performa tinggi bahkan dengan volume data yang besar.
 
 ### Dampak dan Manfaat
 
@@ -86,10 +86,10 @@ Implementasi Gudang Mitra telah terbukti meningkatkan efisiensi operasional hing
 
 Aplikasi ini juga meningkatkan transparansi dalam proses permintaan barang, memungkinkan user untuk melacak status permintaan mereka secara real-time. Hal ini berkontribusi pada peningkatan kepuasan user dan mengurangi beban kerja administratif.
 
-Fitur AI chat assistant telah terbukti mengurangi waktu pencarian informasi inventori hingga 70%, memungkinkan user untuk mendapatkan jawaban instan tentang ketersediaan barang, rekomendasi produk, dan informasi stok tanpa perlu navigasi manual melalui sistem.
+Sistem pencarian dan filter yang canggih telah terbukti mengurangi waktu pencarian barang hingga 70%, memungkinkan user untuk dengan cepat menemukan item yang dibutuhkan berdasarkan berbagai kriteria seperti kategori, status ketersediaan, dan nama barang.
 
 ### Pengembangan Berkelanjutan
 
-Gudang Mitra dirancang dengan filosofi pengembangan berkelanjutan, dengan roadmap yang mencakup peningkatan AI assistant dengan kemampuan voice chat, implementasi sistem barcode/QR code untuk tracking yang lebih akurat, pengembangan mobile app native untuk akses yang lebih mudah, dan integrasi machine learning untuk prediksi kebutuhan inventori berdasarkan pola historis.
+Gudang Mitra dirancang dengan filosofi pengembangan berkelanjutan, dengan roadmap yang mencakup implementasi sistem barcode/QR code untuk tracking yang lebih akurat, pengembangan mobile app native untuk akses yang lebih mudah, integrasi machine learning untuk prediksi kebutuhan inventori berdasarkan pola historis, dan pengembangan API yang lebih robust untuk integrasi dengan sistem eksternal.
 
 Proyek ini mendemonstrasikan kemampuan dalam mengembangkan solusi teknologi yang tidak hanya memenuhi kebutuhan bisnis saat ini, tetapi juga dapat beradaptasi dengan perkembangan teknologi dan kebutuhan organisasi di masa depan.
