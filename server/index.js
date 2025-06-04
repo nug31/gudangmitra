@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const mysql = require("mysql2/promise");
+const OpenAI = require("openai");
 const { dbConfig, serverConfig } = require('./config');
 
 console.log('🚀 Starting server...');
@@ -1935,9 +1936,197 @@ app.get("/api/dashboard/activity", async (req, res) => {
   }
 });
 
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Chat endpoints
+// Send a chat message and get AI response
+app.post("/api/chat", async (req, res) => {
+  try {
+    const { message, sessionId } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Message is required",
+      });
+    }
+
+    console.log("Chat request:", { message, sessionId });
+
+    // Get items context for AI
+    const [items] = await pool.query(`
+      SELECT id, name, description, category, quantity, minQuantity, status, price
+      FROM items
+      WHERE isActive = 1
+      ORDER BY name
+    `);
+
+    // Create context about available items
+    const itemsContext = items.map(item => ({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      category: item.category,
+      quantity: item.quantity,
+      minQuantity: item.minQuantity,
+      status: item.status || (item.quantity <= 0 ? "out-of-stock" :
+              item.quantity <= item.minQuantity ? "low-stock" : "in-stock"),
+      price: item.price
+    }));
+
+    // Detect language from user message
+    const isIndonesian = /[\u0100-\u017F]|apa|yang|ada|barang|stok|tersedia|item|produk|kategori|harga|jumlah|saya|bisa|tolong|bantuan|cari|lihat|mana|dimana|berapa|kapan|bagaimana|kenapa|siapa/i.test(message);
+
+    // Create system prompt with items context (bilingual)
+    const systemPrompt = `You are a helpful AI assistant for an inventory management system called "Gudang Mitra".
+You help users find information about items in the inventory, check availability, compare products, and answer questions about stock levels.
+
+IMPORTANT: ${isIndonesian ? 'Respond in Bahasa Indonesia (Indonesian language)' : 'Respond in English'}.
+
+Current inventory items:
+${JSON.stringify(itemsContext, null, 2)}
+
+Guidelines:
+${isIndonesian ? `
+- Bersikap ramah dan membantu
+- Berikan informasi akurat tentang barang berdasarkan data inventori saat ini
+- Jika ditanya tentang barang tertentu, periksa data inventori
+- Bantu pengguna memahami status stok (tersedia, stok rendah, habis)
+- Sarankan alternatif jika barang yang diminta habis
+- Format respons dengan jelas dan ringkas
+- Jika tidak memiliki informasi tentang sesuatu, katakan dengan jelas
+- Gunakan istilah yang mudah dipahami dalam Bahasa Indonesia
+- Untuk status stok: "tersedia" (in-stock), "stok rendah" (low-stock), "habis" (out-of-stock)
+` : `
+- Be helpful and friendly
+- Provide accurate information about items based on the current inventory
+- If asked about specific items, check the inventory data
+- Help users understand stock levels (in-stock, low-stock, out-of-stock)
+- Suggest alternatives if requested items are out of stock
+- Format responses clearly and concisely
+- If you don't have information about something, say so clearly
+`}`;
+
+    // Prepare messages for OpenAI
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: message }
+    ];
+
+    // Get AI response
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: messages,
+      max_tokens: 500,
+      temperature: 0.7,
+    });
+
+    const aiResponse = completion.choices[0].message.content;
+
+    // Create response message
+    const responseMessage = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      role: "assistant",
+      content: aiResponse,
+      timestamp: new Date().toISOString(),
+    };
+
+    // For now, we'll use a simple session ID generation
+    // In a production app, you'd want to store sessions in the database
+    const responseSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    res.json({
+      message: responseMessage,
+      sessionId: responseSessionId,
+    });
+
+  } catch (error) {
+    console.error("Error in chat endpoint:", error);
+
+    if (error.code === 'insufficient_quota') {
+      return res.status(429).json({
+        success: false,
+        message: "AI service temporarily unavailable. Please try again later.",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to process chat message",
+      error: error.message,
+    });
+  }
+});
+
+// Get items context for AI (helper endpoint)
+app.get("/api/chat/items-context", async (req, res) => {
+  try {
+    const [items] = await pool.query(`
+      SELECT id, name, description, category, quantity, minQuantity, status, price
+      FROM items
+      WHERE isActive = 1
+      ORDER BY name
+    `);
+
+    const itemsContext = items.map(item => ({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      category: item.category,
+      quantity: item.quantity,
+      minQuantity: item.minQuantity,
+      status: item.status || (item.quantity <= 0 ? "out-of-stock" :
+              item.quantity <= item.minQuantity ? "low-stock" : "in-stock"),
+      price: item.price
+    }));
+
+    res.json({
+      success: true,
+      items: itemsContext,
+    });
+
+  } catch (error) {
+    console.error("Error getting items context:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to get items context",
+      error: error.message,
+    });
+  }
+});
+
+// Placeholder endpoints for chat sessions (for future implementation)
+app.get("/api/chat/sessions/:sessionId", async (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Session not found",
+  });
+});
+
+app.post("/api/chat/sessions", async (req, res) => {
+  const { userId } = req.body;
+  const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  res.json({
+    id: sessionId,
+    userId: userId,
+    messages: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+});
+
+app.get("/api/chat/sessions", async (req, res) => {
+  res.json([]);
+});
+
 // Start the server
 const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log(`🤖 OpenAI API Key: ${process.env.OPENAI_API_KEY ? 'Configured' : 'Not configured'}`);
 });
 
 // Handle server errors

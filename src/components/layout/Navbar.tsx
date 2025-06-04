@@ -11,6 +11,7 @@ import {
   Users,
   Home,
   ClipboardList,
+  MessageSquare,
 } from "lucide-react";
 import Button from "../ui/Button";
 import Logo from "../ui/Logo";
@@ -108,6 +109,17 @@ const Navbar: React.FC = () => {
                   >
                     <ClipboardList className="h-4 w-4 mr-1" />
                     Requests
+                  </Link>
+                  <Link
+                    to="/chat"
+                    className={`${
+                      isActive("/chat")
+                        ? "border-primary-500 text-primary-600"
+                        : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                    } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200`}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-1" />
+                    Chat AI
                   </Link>
                   {isAdmin && (
                     <>
@@ -259,6 +271,20 @@ const Navbar: React.FC = () => {
                   <div className="flex items-center">
                     <ClipboardList className="h-4 w-4 mr-2" />
                     Requests
+                  </div>
+                </Link>
+                <Link
+                  to="/chat"
+                  className={`${
+                    isActive("/chat")
+                      ? "bg-primary-50 border-primary-500 text-primary-700"
+                      : "border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700"
+                  } block pl-3 pr-4 py-2 border-l-4 text-base font-medium`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <div className="flex items-center">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Chat AI
                   </div>
                 </Link>
                 {isAdmin && (

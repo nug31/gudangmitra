@@ -47,3 +47,32 @@ export interface ItemRequest {
   requesterEmail?: string;
   items?: any[];
 }
+
+// Chat related types
+export type ChatMessageRole = "user" | "assistant" | "system";
+
+export interface ChatMessage {
+  id: string;
+  role: ChatMessageRole;
+  content: string;
+  timestamp: string;
+  isLoading?: boolean;
+}
+
+export interface ChatSession {
+  id: string;
+  userId: string;
+  messages: ChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatRequest {
+  message: string;
+  sessionId?: string;
+}
+
+export interface ChatResponse {
+  message: ChatMessage;
+  sessionId: string;
+}

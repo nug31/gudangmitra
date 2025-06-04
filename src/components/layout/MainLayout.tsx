@@ -1,6 +1,7 @@
 import React, { ReactNode } from "react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
+import ChatButton from "../chat/ChatButton";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -31,6 +32,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         </div>
       </main>
       <Footer />
+
+      {/* Floating Chat Button */}
+      <ChatButton />
     </div>
   );
 };
