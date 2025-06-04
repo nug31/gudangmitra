@@ -19,7 +19,7 @@ import NewRequestPage from "../pages/NewRequestPage";
 import InventoryPage from "../pages/InventoryPage";
 import BrowseItemsPage from "../pages/BrowseItemsPage";
 import UsersPage from "../pages/UsersPage";
-import ChatPage from "../pages/ChatPage";
+// ChatPage removed
 
 // Protected route component
 const ProtectedRoute: React.FC<{
@@ -94,10 +94,7 @@ const AppRouter: React.FC = () => {
             <ProtectedRoute element={<UsersPage />} requireManager={true} />
           }
         />
-        <Route
-          path="/chat"
-          element={<ProtectedRoute element={<ChatPage />} />}
-        />
+        {/* Chat route removed */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

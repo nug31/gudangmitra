@@ -1,7 +1,7 @@
 import React, { ReactNode } from "react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
-import ChatButton from "../chat/ChatButton";
+// ChatButton removed
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -33,8 +33,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       </main>
       <Footer />
 
-      {/* Floating Chat Button */}
-      <ChatButton />
+      {/* Chat functionality removed */}
     </div>
   );
 };
