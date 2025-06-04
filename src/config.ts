@@ -1,5 +1,5 @@
 // API configuration
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://gudangmitra-production.up.railway.app/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://gudangmitra-production.up.railway.app';
 
 // Application configuration
 export const APP_NAME = 'Gudang Mitra';
