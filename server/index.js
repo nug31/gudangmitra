@@ -1936,10 +1936,271 @@ app.get("/api/dashboard/activity", async (req, res) => {
   }
 });
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize OpenAI (optional)
+let openai = null;
+try {
+  if (process.env.OPENAI_API_KEY) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+    console.log("✅ OpenAI initialized successfully");
+  } else {
+    console.log("⚠️ OpenAI API key not found, using fallback responses");
+  }
+} catch (error) {
+  console.log("⚠️ OpenAI initialization failed, using fallback responses:", error.message);
+}
+
+// Fallback response function for when OpenAI is not available
+function getFallbackResponse(message, isIndonesian) {
+  const lowerMessage = message.toLowerCase();
+
+  if (isIndonesian) {
+    // Indonesian responses
+    if (lowerMessage.includes('siapa') && (lowerMessage.includes('developer') || lowerMessage.includes('pembuat') || lowerMessage.includes('membuat'))) {
+      return `👨‍💻 **Developer Gudang Mitra**
+
+Aplikasi Gudang Mitra dikembangkan oleh **JS Nugroho (jsnugroho)**, seorang developer berpengalaman yang mengkhususkan diri dalam pengembangan aplikasi web modern.
+
+🚀 **Tentang JS Nugroho:**
+- Ahli dalam teknologi React, Node.js, dan database management
+- Berpengalaman dalam membangun sistem manajemen yang efisien
+- Fokus pada user experience dan interface yang intuitif
+- Mengembangkan Gudang Mitra untuk membantu bisnis mengelola inventori dengan lebih baik
+
+💡 JS Nugroho menciptakan sistem ini dengan visi untuk menyederhanakan proses manajemen inventori dan membuat teknologi yang mudah digunakan untuk semua kalangan.`;
+    }
+
+    if (lowerMessage.includes('kegunaan') || lowerMessage.includes('manfaat') || lowerMessage.includes('fungsi')) {
+      return `🏢 **Kegunaan Aplikasi Gudang Mitra**
+
+Gudang Mitra adalah sistem manajemen inventori profesional yang dirancang untuk membantu bisnis dan organisasi mengelola barang dengan efisien.
+
+✅ **Manfaat Utama:**
+- 📦 **Kelola Inventori** - Tambah, edit, hapus barang dengan mudah
+- 📋 **Sistem Permintaan** - Buat dan kelola permintaan barang
+- 👥 **Multi-User** - Mendukung Admin, Manager, dan User
+- 📊 **Dashboard Real-time** - Pantau statistik dan aktivitas
+- 🔔 **Notifikasi Pintar** - Alert otomatis untuk stok rendah
+- 📤 **Export Excel** - Laporan siap analisis
+- 🤖 **AI Assistant** - Bantuan 24/7
+
+🎯 **Cocok untuk:**
+- Perusahaan dengan inventori besar
+- Sekolah dan institusi pendidikan
+- Toko dan retail
+- Warehouse dan gudang
+- Organisasi yang butuh tracking barang`;
+    }
+
+    if (lowerMessage.includes('cara') && (lowerMessage.includes('gunakan') || lowerMessage.includes('pakai') || lowerMessage.includes('menggunakan'))) {
+      return `📖 **Cara Menggunakan Gudang Mitra**
+
+🚀 **Langkah Awal:**
+1. Login dengan akun yang diberikan
+2. Lihat Dashboard untuk overview sistem
+3. Familiarisasi dengan menu navigasi
+
+👤 **Untuk User:**
+- **Browse Items** - Lihat daftar barang tersedia
+- **Request Items** - Klik barang → isi form permintaan
+- **Track Status** - Pantau permintaan di halaman Requests
+
+🔧 **Untuk Admin:**
+- **Inventory** - Kelola semua barang (tambah/edit/hapus)
+- **Requests** - Approve/reject permintaan user
+- **Dashboard** - Monitor aktivitas dan statistik
+- **Export** - Download laporan Excel
+
+👑 **Untuk Manager:**
+- Semua fitur Admin +
+- **Users** - Kelola akun pengguna
+- **System Admin** - Pengaturan tingkat tinggi
+
+💡 **Tips:**
+- Gunakan search untuk cari barang cepat
+- Manfaatkan filter kategori
+- Set minimum quantity untuk alert stok
+- Export Excel untuk laporan berkala`;
+    }
+
+    if (lowerMessage.includes('fitur') || lowerMessage.includes('feature')) {
+      return `⚡ **Fitur-Fitur Gudang Mitra**
+
+🏢 **MANAJEMEN INVENTORI**
+- ✅ CRUD operations lengkap (Create, Read, Update, Delete)
+- ✅ Real-time stock tracking
+- ✅ Status otomatis (tersedia, stok rendah, habis)
+- ✅ Kategorisasi barang terorganisir
+- ✅ Minimum quantity alerts
+
+📋 **SISTEM PERMINTAAN**
+- ✅ Form permintaan yang mudah
+- ✅ Approval workflow untuk manager/admin
+- ✅ Status tracking (pending, approved, rejected)
+- ✅ History permintaan lengkap
+
+👥 **USER MANAGEMENT**
+- ✅ Role-based access (Admin/Manager/User)
+- ✅ Secure authentication
+- ✅ Permission management
+
+📊 **DASHBOARD & ANALYTICS**
+- ✅ Real-time statistics
+- ✅ Visual charts dan graphs
+- ✅ Activity feed
+- ✅ Inventory overview
+
+🔔 **NOTIFIKASI PINTAR**
+- ✅ Alert permintaan baru
+- ✅ Notifikasi approval/rejection
+- ✅ Low stock warnings
+
+📤 **EXPORT & REPORTING**
+- ✅ Excel export untuk inventori
+- ✅ Request reports
+- ✅ Format siap analisis
+
+🤖 **AI CHAT ASSISTANT**
+- ✅ Bantuan 24/7
+- ✅ Support Bahasa Indonesia & English
+- ✅ Informasi aplikasi lengkap`;
+    }
+
+    // Default Indonesian response
+    return `👋 **Halo! Saya Asisten AI Gudang Mitra**
+
+Saya di sini untuk membantu Anda mengetahui tentang:
+- 👨‍💻 **Developer** - JS Nugroho (jsnugroho)
+- 🏢 **Kegunaan aplikasi** - Manajemen inventori profesional
+- 📖 **Cara penggunaan** - Panduan lengkap untuk semua user
+- ⚡ **Fitur-fitur** - Semua kemampuan sistem
+
+Silakan tanyakan hal spesifik yang ingin Anda ketahui! 😊`;
+  } else {
+    // English responses
+    if (lowerMessage.includes('who') && (lowerMessage.includes('developer') || lowerMessage.includes('created') || lowerMessage.includes('made'))) {
+      return `👨‍💻 **Gudang Mitra Developer**
+
+Gudang Mitra was developed by **JS Nugroho (jsnugroho)**, an experienced developer specializing in modern web application development.
+
+🚀 **About JS Nugroho:**
+- Expert in React, Node.js, and database management technologies
+- Experienced in building efficient management systems
+- Focused on user experience and intuitive interfaces
+- Developed Gudang Mitra to help businesses manage inventory more effectively
+
+💡 JS Nugroho created this system with a vision to simplify inventory management processes and make technology accessible for everyone.`;
+    }
+
+    if (lowerMessage.includes('why') && lowerMessage.includes('use')) {
+      return `🏢 **Why Use Gudang Mitra**
+
+Gudang Mitra is a professional inventory management system designed to help businesses and organizations manage their items efficiently.
+
+✅ **Key Benefits:**
+- 📦 **Inventory Management** - Easy add, edit, delete items
+- 📋 **Request System** - Create and manage item requests
+- 👥 **Multi-User Support** - Admin, Manager, and User roles
+- 📊 **Real-time Dashboard** - Monitor statistics and activities
+- 🔔 **Smart Notifications** - Automatic low stock alerts
+- 📤 **Excel Export** - Analysis-ready reports
+- 🤖 **AI Assistant** - 24/7 help support
+
+🎯 **Perfect for:**
+- Companies with large inventories
+- Schools and educational institutions
+- Stores and retail businesses
+- Warehouses and storage facilities
+- Organizations needing item tracking`;
+    }
+
+    if (lowerMessage.includes('how') && lowerMessage.includes('use')) {
+      return `📖 **How to Use Gudang Mitra**
+
+🚀 **Getting Started:**
+1. Login with your provided account
+2. View Dashboard for system overview
+3. Familiarize with navigation menu
+
+👤 **For Users:**
+- **Browse Items** - View available items list
+- **Request Items** - Click item → fill request form
+- **Track Status** - Monitor requests in Requests page
+
+🔧 **For Admins:**
+- **Inventory** - Manage all items (add/edit/delete)
+- **Requests** - Approve/reject user requests
+- **Dashboard** - Monitor activities and statistics
+- **Export** - Download Excel reports
+
+👑 **For Managers:**
+- All Admin features +
+- **Users** - Manage user accounts
+- **System Admin** - High-level settings
+
+💡 **Tips:**
+- Use search to find items quickly
+- Utilize category filters
+- Set minimum quantities for stock alerts
+- Export Excel for periodic reports`;
+    }
+
+    if (lowerMessage.includes('feature') || lowerMessage.includes('what')) {
+      return `⚡ **Gudang Mitra Features**
+
+🏢 **INVENTORY MANAGEMENT**
+- ✅ Complete CRUD operations
+- ✅ Real-time stock tracking
+- ✅ Automatic status (in-stock, low-stock, out-of-stock)
+- ✅ Organized item categorization
+- ✅ Minimum quantity alerts
+
+📋 **REQUEST SYSTEM**
+- ✅ Easy request forms
+- ✅ Approval workflow for managers/admins
+- ✅ Status tracking (pending, approved, rejected)
+- ✅ Complete request history
+
+👥 **USER MANAGEMENT**
+- ✅ Role-based access (Admin/Manager/User)
+- ✅ Secure authentication
+- ✅ Permission management
+
+📊 **DASHBOARD & ANALYTICS**
+- ✅ Real-time statistics
+- ✅ Visual charts and graphs
+- ✅ Activity feed
+- ✅ Inventory overview
+
+🔔 **SMART NOTIFICATIONS**
+- ✅ New request alerts
+- ✅ Approval/rejection notifications
+- ✅ Low stock warnings
+
+📤 **EXPORT & REPORTING**
+- ✅ Excel export for inventory
+- ✅ Request reports
+- ✅ Analysis-ready format
+
+🤖 **AI CHAT ASSISTANT**
+- ✅ 24/7 assistance
+- ✅ Indonesian & English support
+- ✅ Complete app information`;
+    }
+
+    // Default English response
+    return `👋 **Hello! I'm Gudang Mitra AI Assistant**
+
+I'm here to help you learn about:
+- 👨‍💻 **Developer** - JS Nugroho (jsnugroho)
+- 🏢 **App purpose** - Professional inventory management
+- 📖 **How to use** - Complete guide for all users
+- ⚡ **Features** - All system capabilities
+
+Please ask me anything specific you'd like to know! 😊`;
+  }
+}
 
 // Chat endpoints
 // Send a chat message and get AI response
@@ -2186,15 +2447,30 @@ ${isIndonesian ? `
       { role: "user", content: message }
     ];
 
-    // Get AI response
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: messages,
-      max_tokens: 500,
-      temperature: 0.7,
-    });
+    let aiResponse;
 
-    const aiResponse = completion.choices[0].message.content;
+    if (openai) {
+      try {
+        // Try to get AI response from OpenAI
+        const completion = await openai.chat.completions.create({
+          model: "gpt-3.5-turbo",
+          messages: messages,
+          max_tokens: 500,
+          temperature: 0.7,
+        });
+
+        aiResponse = completion.choices[0].message.content;
+      } catch (openaiError) {
+        console.log("OpenAI error, using fallback response:", openaiError.message);
+
+        // Fallback responses based on message content
+        aiResponse = getFallbackResponse(message, isIndonesian);
+      }
+    } else {
+      // OpenAI not available, use fallback
+      console.log("Using fallback response (OpenAI not initialized)");
+      aiResponse = getFallbackResponse(message, isIndonesian);
+    }
 
     // Create response message
     const responseMessage = {
