@@ -142,7 +142,17 @@ DB_PORT=3306
 PORT=3002
 CORS_ORIGIN=http://localhost:5173 (for development)
 CORS_ORIGIN=https://your-netlify-app.netlify.app (for production)
+OPENAI_API_KEY=your-openai-api-key-here (required for AI chat)
 ```
+
+## 🤖 AI Chat Setup
+
+The application includes a bilingual AI chat feature that requires an OpenAI API key. See [OPENAI_SETUP.md](OPENAI_SETUP.md) for detailed setup instructions.
+
+**Quick Setup:**
+1. Get an OpenAI API key from [platform.openai.com](https://platform.openai.com)
+2. Add `OPENAI_API_KEY=your-key-here` to your environment variables
+3. For Railway: Add the key in your project's Variables tab
 
 ## 👥 Test Accounts
 
@@ -212,7 +222,10 @@ The application features a modern, professional design with:
    PORT=3002
    NODE_ENV=production
    CORS_ORIGIN=https://gudang-mitra-app.netlify.app
+   OPENAI_API_KEY=your-openai-api-key-here
    ```
+
+5. **Setup AI Chat**: Follow [OPENAI_SETUP.md](OPENAI_SETUP.md) to configure the AI chat feature
 
 ## 📄 License
 
