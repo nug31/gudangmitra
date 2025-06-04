@@ -4,7 +4,7 @@ const mysql = require("mysql2/promise");
 const OpenAI = require("openai");
 const { dbConfig, serverConfig } = require('./config');
 
-console.log('🚀 Starting server...');
+console.log('🚀 Starting server with full functionality...');
 console.log('Database config:', {
   host: dbConfig.host,
   port: dbConfig.port,
