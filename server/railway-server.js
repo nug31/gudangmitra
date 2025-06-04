@@ -2243,6 +2243,7 @@ app.listen(PORT, () => {
   console.log(`   GET  /api/dashboard/user/:userId`);
   console.log(`   POST /api/chat (MOCK DATA)`);
   console.log(`\n✅ Server ready with AI Chat support (MOCK DATA ONLY)!`);
+  console.log(`🤖 Chat endpoint available at: /api/chat`);
 });
 
 // Handle graceful shutdown
