@@ -1939,23 +1939,12 @@ app.use((req, res) => {
   });
 });
 
-// Initialize OpenAI (optional)
-let openai = null;
-try {
-  if (process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-    console.log("✅ OpenAI initialized successfully");
-  } else {
-    console.log("⚠️ OpenAI API key not found, using fallback responses");
-  }
-} catch (error) {
-  console.log("⚠️ OpenAI initialization failed, using fallback responses:", error.message);
-}
+// Chat system configured to use MOCK DATA ONLY
+// No OpenAI integration - using predefined responses
+console.log("🤖 Chat system: Using MOCK DATA responses only");
 
-// Fallback response function for when OpenAI is not available
-function getFallbackResponse(message, isIndonesian) {
+// Mock data response function - predefined responses only
+function getMockResponse(message, isIndonesian) {
   const lowerMessage = message.toLowerCase();
 
   if (isIndonesian) {
@@ -2027,13 +2016,61 @@ Gudang Mitra adalah sistem manajemen inventori profesional yang dirancang untuk 
 - Export Excel untuk laporan berkala`;
     }
 
-    // Default Indonesian response
-    return `👋 **Halo! Saya Asisten AI Gudang Mitra**
+    if (lowerMessage.includes('fitur') || lowerMessage.includes('feature')) {
+      return `⚡ **Fitur-Fitur Gudang Mitra (MOCK DATA)**
 
-Saya di sini untuk membantu Anda mengetahui tentang:
+🏢 **MANAJEMEN INVENTORI**
+- ✅ CRUD operations lengkap (Create, Read, Update, Delete)
+- ✅ Real-time stock tracking
+- ✅ Status otomatis (tersedia, stok rendah, habis)
+- ✅ Kategorisasi barang terorganisir
+- ✅ Minimum quantity alerts
+
+📋 **SISTEM PERMINTAAN**
+- ✅ Form permintaan yang mudah
+- ✅ Approval workflow untuk manager/admin
+- ✅ Status tracking (pending, approved, rejected)
+- ✅ History permintaan lengkap
+
+👥 **USER MANAGEMENT**
+- ✅ Role-based access (Admin/Manager/User)
+- ✅ Secure authentication
+- ✅ Permission management
+
+📊 **DASHBOARD & ANALYTICS**
+- ✅ Real-time statistics
+- ✅ Visual charts dan graphs
+- ✅ Activity feed
+- ✅ Inventory overview
+
+🤖 **AI CHAT ASSISTANT (MOCK)**
+- ✅ Bantuan 24/7 dengan data mock
+- ✅ Support Bahasa Indonesia & English
+- ✅ Informasi aplikasi lengkap`;
+    }
+
+    if (lowerMessage.includes('halo') || lowerMessage.includes('hai') || lowerMessage.includes('hello')) {
+      return `👋 **Halo! Selamat datang di Gudang Mitra!**
+
+Saya adalah asisten AI yang menggunakan **MOCK DATA** untuk membantu Anda.
+
+🤖 **Yang bisa saya bantu:**
+- 👨‍💻 Informasi tentang developer
+- 🏢 Kegunaan dan manfaat aplikasi
+- 📖 Panduan cara penggunaan
+- ⚡ Fitur-fitur yang tersedia
+
+Silakan tanyakan apa yang ingin Anda ketahui! 😊`;
+    }
+
+    // Default Indonesian response
+    return `👋 **Halo! Saya Asisten AI Gudang Mitra (MOCK DATA)**
+
+Saya menggunakan data mock untuk membantu Anda mengetahui tentang:
 - 👨‍💻 **Developer** - JS Nugroho (jsnugroho)
 - 🏢 **Kegunaan aplikasi** - Manajemen inventori profesional
 - 📖 **Cara penggunaan** - Panduan lengkap untuk semua user
+- ⚡ **Fitur-fitur** - Semua kemampuan sistem
 
 Silakan tanyakan hal spesifik yang ingin Anda ketahui! 😊`;
   } else {
@@ -2106,19 +2143,20 @@ Gudang Mitra is a professional inventory management system designed to help busi
     }
 
     // Default English response
-    return `👋 **Hello! I'm Gudang Mitra AI Assistant**
+    return `👋 **Hello! I'm Gudang Mitra AI Assistant (MOCK DATA)**
 
-I'm here to help you learn about:
+I'm using mock data to help you learn about:
 - 👨‍💻 **Developer** - JS Nugroho (jsnugroho)
 - 🏢 **App purpose** - Professional inventory management
 - 📖 **How to use** - Complete guide for all users
+- ⚡ **Features** - All system capabilities
 
 Please ask me anything specific you'd like to know! 😊`;
   }
 }
 
-// Chat endpoints
-// Send a chat message and get AI response
+// Chat endpoints - MOCK DATA ONLY
+// Send a chat message and get mock AI response
 app.post("/api/chat", async (req, res) => {
   try {
     const { message, sessionId } = req.body;
@@ -2130,61 +2168,14 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    console.log("Chat request:", { message, sessionId });
+    console.log("Chat request (MOCK MODE):", { message, sessionId });
 
     // Detect language (simple detection)
     const isIndonesian = /[a-zA-Z]*[aiueo]{2,}|bagaimana|siapa|apa|kenapa|dimana|kapan|mengapa|cara|kegunaan|manfaat|fungsi/i.test(message);
 
-    // Create system prompt
-    const systemPrompt = isIndonesian ?
-      `Anda adalah asisten AI untuk aplikasi Gudang Mitra, sistem manajemen inventori profesional.
-
-PENTING: Fokus HANYA pada 3 topik ini:
-1. Developer: JS Nugroho (jsnugroho) - developer berpengalaman yang membuat aplikasi ini
-2. Kegunaan aplikasi: Sistem manajemen inventori untuk bisnis dan organisasi
-3. Cara penggunaan: Panduan untuk User, Admin, dan Manager
-
-Berikan jawaban yang informatif, ramah, dan profesional dalam Bahasa Indonesia. Gunakan emoji dan format yang menarik.` :
-
-      `You are an AI assistant for Gudang Mitra, a professional inventory management application.
-
-IMPORTANT: Focus ONLY on these 3 topics:
-1. Developer: JS Nugroho (jsnugroho) - experienced developer who created this app
-2. App purpose: Inventory management system for businesses and organizations
-3. How to use: Guide for Users, Admins, and Managers
-
-Provide informative, friendly, and professional responses in English. Use emojis and attractive formatting.`;
-
-    // Prepare messages for OpenAI
-    const messages = [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: message }
-    ];
-
-    let aiResponse;
-
-    if (openai) {
-      try {
-        // Try to get AI response from OpenAI
-        const completion = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
-          messages: messages,
-          max_tokens: 500,
-          temperature: 0.7,
-        });
-
-        aiResponse = completion.choices[0].message.content;
-      } catch (openaiError) {
-        console.log("OpenAI error, using fallback response:", openaiError.message);
-
-        // Fallback responses based on message content
-        aiResponse = getFallbackResponse(message, isIndonesian);
-      }
-    } else {
-      // OpenAI not available, use fallback
-      console.log("Using fallback response (OpenAI not initialized)");
-      aiResponse = getFallbackResponse(message, isIndonesian);
-    }
+    // ALWAYS use mock data - no OpenAI calls
+    console.log("Using MOCK DATA response");
+    const aiResponse = getMockResponse(message, isIndonesian);
 
     // Create response message
     const responseMessage = {
@@ -2194,7 +2185,7 @@ Provide informative, friendly, and professional responses in English. Use emojis
       timestamp: new Date().toISOString(),
     };
 
-    // For now, we'll use a simple session ID generation
+    // Generate session ID
     const responseSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     res.json({
@@ -2250,8 +2241,8 @@ app.listen(PORT, () => {
   console.log(`   GET  /api/dashboard/top-items`);
   console.log(`   GET  /api/dashboard/activity`);
   console.log(`   GET  /api/dashboard/user/:userId`);
-  console.log(`   POST /api/chat`);
-  console.log(`\n✅ Server ready with AI Chat support!`);
+  console.log(`   POST /api/chat (MOCK DATA)`);
+  console.log(`\n✅ Server ready with AI Chat support (MOCK DATA ONLY)!`);
 });
 
 // Handle graceful shutdown
