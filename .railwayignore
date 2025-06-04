@@ -1,0 +1,50 @@
+# Railway ignore file - exclude unnecessary files from deployment
+
+# Development files
+node_modules/
+.git/
+.vscode/
+.idea/
+
+# Test files
+test-chat.html
+test-chat-api.cjs
+*.test.js
+*.spec.js
+
+# Build artifacts
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# Environment files (use Railway environment variables instead)
+.env.local
+.env.development
+.env.test
+
+# Documentation
+README.md
+docs/
+
+# Source maps
+*.map
+
+# Cache
+.cache/
+.parcel-cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/

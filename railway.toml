@@ -2,8 +2,11 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "node server/railway-server.js"
 healthcheckPath = "/"
-healthcheckTimeout = 300
+healthcheckTimeout = 180
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 10
+restartPolicyMaxRetries = 5
+
+[build.env]
+NODE_ENV = "production"
