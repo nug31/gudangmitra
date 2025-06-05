@@ -201,6 +201,69 @@ app.get("/api/items", async (req, res) => {
   }
 });
 
+// Create a new item
+app.post("/api/items", async (req, res) => {
+  try {
+    console.log("POST /api/items - Creating new item");
+    console.log("Request body:", req.body);
+
+    const { name, description, category, quantity, minQuantity, price } = req.body;
+
+    // Validate required fields
+    if (!name || !description || !category) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, description, and category are required"
+      });
+    }
+
+    // Calculate status based on quantity and minQuantity
+    let status = "out-of-stock";
+    if (quantity > 0) {
+      status = quantity <= minQuantity ? "low-stock" : "in-stock";
+    }
+
+    // Insert the new item
+    const [result] = await pool.query(`
+      INSERT INTO items (name, description, category, quantity, minQuantity, price, status, isActive)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+    `, [name, description, category, quantity || 0, minQuantity || 0, price || 0, status]);
+
+    if (result.insertId) {
+      // Fetch the created item
+      const [items] = await pool.query("SELECT * FROM items WHERE id = ?", [result.insertId]);
+      const item = items[0];
+
+      // Format the response
+      const formattedItem = {
+        id: item.id.toString(),
+        name: item.name,
+        description: item.description,
+        category: item.category,
+        quantity: typeof item.quantity === "number" ? item.quantity : 0,
+        minQuantity: typeof item.minQuantity === "number" ? item.minQuantity : 0,
+        status: item.quantity > 0 ? (item.quantity <= item.minQuantity ? "low-stock" : "in-stock") : "out-of-stock",
+        price: item.price || 0,
+      };
+
+      console.log("Item created successfully:", formattedItem);
+      res.status(201).json(formattedItem);
+    } else {
+      res.status(400).json({
+        success: false,
+        message: "Failed to create item"
+      });
+    }
+  } catch (error) {
+    console.error("Error creating item:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error creating item",
+      error: error.message,
+    });
+  }
+});
+
 // Update an existing item
 app.put("/api/items/:id", async (req, res) => {
   try {
@@ -1961,6 +2024,9 @@ app.listen(PORT, () => {
   console.log(`   GET  /api/test-connection`);
   console.log(`   POST /api/auth/login`);
   console.log(`   GET  /api/items`);
+  console.log(`   POST /api/items`);
+  console.log(`   PUT  /api/items/:id`);
+  console.log(`   DELETE /api/items/:id`);
   console.log(`   GET  /api/categories`);
   console.log(`   GET  /api/requests`);
   console.log(`   GET  /api/requests/user/:userId`);
