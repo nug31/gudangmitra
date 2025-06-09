@@ -22,6 +22,7 @@ export interface Item {
   category: ItemCategory;
   quantity: number;
   minQuantity: number;
+  borrowedQuantity?: number; // For electronics that can be borrowed
   status: "in-stock" | "low-stock" | "out-of-stock";
   lastRestocked?: string;
   price?: number;

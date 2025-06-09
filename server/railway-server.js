@@ -2002,6 +2002,319 @@ app.use((req, res) => {
   });
 });
 
+// ===== LOAN MANAGEMENT ENDPOINTS =====
+
+// Get all loans (admin/manager only)
+app.get("/api/loans", async (req, res) => {
+  try {
+    console.log("GET /api/loans - Fetching all loans");
+
+    const [loans] = await pool.query(`
+      SELECT
+        l.id,
+        l.user_id as userId,
+        l.item_id as itemId,
+        l.quantity,
+        l.status,
+        l.borrowed_date as borrowedDate,
+        l.due_date as dueDate,
+        l.returned_date as returnedDate,
+        l.notes,
+        i.name as itemName,
+        u.username as userName,
+        u.email as userEmail
+      FROM loans l
+      JOIN items i ON l.item_id = i.id
+      JOIN users u ON l.user_id = u.id
+      ORDER BY l.borrowed_date DESC
+    `);
+
+    console.log(`Found ${loans.length} loans`);
+    res.json(loans);
+  } catch (error) {
+    console.error("Error fetching loans:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching loans",
+      error: error.message,
+    });
+  }
+});
+
+// Get loans for a specific user
+app.get("/api/loans/user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log("GET /api/loans/user/:userId - Fetching loans for user:", userId);
+
+    const [loans] = await pool.query(`
+      SELECT
+        l.id,
+        l.user_id as userId,
+        l.item_id as itemId,
+        l.quantity,
+        l.status,
+        l.borrowed_date as borrowedDate,
+        l.due_date as dueDate,
+        l.returned_date as returnedDate,
+        l.notes,
+        i.name as itemName
+      FROM loans l
+      JOIN items i ON l.item_id = i.id
+      WHERE l.user_id = ?
+      ORDER BY l.borrowed_date DESC
+    `, [userId]);
+
+    console.log(`Found ${loans.length} loans for user ${userId}`);
+    res.json(loans);
+  } catch (error) {
+    console.error("Error fetching user loans:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching user loans",
+      error: error.message,
+    });
+  }
+});
+
+// Borrow an item
+app.post("/api/loans/borrow", async (req, res) => {
+  try {
+    const { userId, itemId, quantity, dueDate, notes } = req.body;
+    console.log("POST /api/loans/borrow - Borrowing item:", { userId, itemId, quantity, dueDate });
+
+    // Validate required fields
+    if (!userId || !itemId || !quantity || !dueDate) {
+      return res.status(400).json({
+        success: false,
+        message: "userId, itemId, quantity, and dueDate are required"
+      });
+    }
+
+    // Check if item exists and is electronic
+    const [items] = await pool.query("SELECT * FROM items WHERE id = ? AND isActive = 1", [itemId]);
+    if (items.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Item not found"
+      });
+    }
+
+    const item = items[0];
+    if (item.category.toLowerCase() !== 'electronics') {
+      return res.status(400).json({
+        success: false,
+        message: "Only electronic items can be borrowed"
+      });
+    }
+
+    // Check availability
+    const availableQuantity = item.quantity - (item.borrowed_quantity || 0);
+    if (quantity > availableQuantity) {
+      return res.status(400).json({
+        success: false,
+        message: `Only ${availableQuantity} items available for borrowing`
+      });
+    }
+
+    // Generate loan ID
+    const loanId = `loan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create loan record
+    await pool.query(`
+      INSERT INTO loans (id, user_id, item_id, quantity, status, due_date, notes)
+      VALUES (?, ?, ?, ?, 'active', ?, ?)
+    `, [loanId, userId, itemId, quantity, dueDate, notes || null]);
+
+    // Update item borrowed quantity
+    await pool.query(`
+      UPDATE items
+      SET borrowed_quantity = COALESCE(borrowed_quantity, 0) + ?
+      WHERE id = ?
+    `, [quantity, itemId]);
+
+    // Fetch the created loan with item details
+    const [newLoan] = await pool.query(`
+      SELECT
+        l.id,
+        l.user_id as userId,
+        l.item_id as itemId,
+        l.quantity,
+        l.status,
+        l.borrowed_date as borrowedDate,
+        l.due_date as dueDate,
+        l.notes,
+        i.name as itemName
+      FROM loans l
+      JOIN items i ON l.item_id = i.id
+      WHERE l.id = ?
+    `, [loanId]);
+
+    console.log("Item borrowed successfully:", newLoan[0]);
+    res.status(201).json(newLoan[0]);
+  } catch (error) {
+    console.error("Error borrowing item:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error borrowing item",
+      error: error.message,
+    });
+  }
+});
+
+// Return an item
+app.post("/api/loans/return", async (req, res) => {
+  try {
+    const { loanId, notes } = req.body;
+    console.log("POST /api/loans/return - Returning item:", { loanId });
+
+    if (!loanId) {
+      return res.status(400).json({
+        success: false,
+        message: "loanId is required"
+      });
+    }
+
+    // Get loan details
+    const [loans] = await pool.query(`
+      SELECT l.*, i.name as itemName
+      FROM loans l
+      JOIN items i ON l.item_id = i.id
+      WHERE l.id = ? AND l.status = 'active'
+    `, [loanId]);
+
+    if (loans.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Active loan not found"
+      });
+    }
+
+    const loan = loans[0];
+
+    // Update loan status
+    await pool.query(`
+      UPDATE loans
+      SET status = 'returned', returned_date = NOW(), notes = CONCAT(COALESCE(notes, ''), ?)
+      WHERE id = ?
+    `, [notes ? `\nReturn notes: ${notes}` : '', loanId]);
+
+    // Update item borrowed quantity
+    await pool.query(`
+      UPDATE items
+      SET borrowed_quantity = GREATEST(0, COALESCE(borrowed_quantity, 0) - ?)
+      WHERE id = ?
+    `, [loan.quantity, loan.item_id]);
+
+    // Fetch updated loan
+    const [updatedLoan] = await pool.query(`
+      SELECT
+        l.id,
+        l.user_id as userId,
+        l.item_id as itemId,
+        l.quantity,
+        l.status,
+        l.borrowed_date as borrowedDate,
+        l.due_date as dueDate,
+        l.returned_date as returnedDate,
+        l.notes,
+        i.name as itemName
+      FROM loans l
+      JOIN items i ON l.item_id = i.id
+      WHERE l.id = ?
+    `, [loanId]);
+
+    console.log("Item returned successfully:", updatedLoan[0]);
+    res.json(updatedLoan[0]);
+  } catch (error) {
+    console.error("Error returning item:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error returning item",
+      error: error.message,
+    });
+  }
+});
+
+// Check item availability for borrowing
+app.post("/api/loans/check-availability", async (req, res) => {
+  try {
+    const { itemId, quantity } = req.body;
+    console.log("POST /api/loans/check-availability - Checking availability:", { itemId, quantity });
+
+    const [items] = await pool.query(`
+      SELECT quantity, COALESCE(borrowed_quantity, 0) as borrowed_quantity
+      FROM items
+      WHERE id = ? AND isActive = 1
+    `, [itemId]);
+
+    if (items.length === 0) {
+      return res.json({ available: false, message: "Item not found" });
+    }
+
+    const item = items[0];
+    const availableQuantity = item.quantity - item.borrowed_quantity;
+    const available = quantity <= availableQuantity;
+
+    res.json({
+      available,
+      availableQuantity,
+      message: available ? "Item is available" : `Only ${availableQuantity} items available`
+    });
+  } catch (error) {
+    console.error("Error checking availability:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error checking availability",
+      error: error.message,
+    });
+  }
+});
+
+// Get overdue loans
+app.get("/api/loans/overdue", async (req, res) => {
+  try {
+    console.log("GET /api/loans/overdue - Fetching overdue loans");
+
+    // Update overdue status first
+    await pool.query(`
+      UPDATE loans
+      SET status = 'overdue'
+      WHERE status = 'active' AND due_date < CURDATE()
+    `);
+
+    const [loans] = await pool.query(`
+      SELECT
+        l.id,
+        l.user_id as userId,
+        l.item_id as itemId,
+        l.quantity,
+        l.status,
+        l.borrowed_date as borrowedDate,
+        l.due_date as dueDate,
+        l.notes,
+        i.name as itemName,
+        u.username as userName,
+        u.email as userEmail
+      FROM loans l
+      JOIN items i ON l.item_id = i.id
+      JOIN users u ON l.user_id = u.id
+      WHERE l.status = 'overdue'
+      ORDER BY l.due_date ASC
+    `);
+
+    console.log(`Found ${loans.length} overdue loans`);
+    res.json(loans);
+  } catch (error) {
+    console.error("Error fetching overdue loans:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching overdue loans",
+      error: error.message,
+    });
+  }
+});
+
 // Chat functionality completely removed
 
 // Error handler (must be last)
@@ -2043,7 +2356,13 @@ app.listen(PORT, () => {
   console.log(`   GET  /api/dashboard/top-items`);
   console.log(`   GET  /api/dashboard/activity`);
   console.log(`   GET  /api/dashboard/user/:userId`);
-  console.log(`\n✅ Server ready!`);
+  console.log(`   GET  /api/loans`);
+  console.log(`   GET  /api/loans/user/:userId`);
+  console.log(`   POST /api/loans/borrow`);
+  console.log(`   POST /api/loans/return`);
+  console.log(`   POST /api/loans/check-availability`);
+  console.log(`   GET  /api/loans/overdue`);
+  console.log(`\n✅ Server ready with Loan Management System!`);
 });
 
 // Handle graceful shutdown
