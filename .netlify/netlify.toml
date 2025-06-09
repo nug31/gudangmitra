@@ -13,7 +13,7 @@ commandOrigin = "config"
 command = "npm run build"
 
 [build.environment]
-VITE_API_URL = "https://gudangmitra-production.up.railway.app"
+VITE_API_URL = "https://gudangmitra-production.up.railway.app/api"
 
 [build.processing]
 

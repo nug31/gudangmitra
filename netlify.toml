@@ -3,7 +3,7 @@
   publish = "dist"
 
 [build.environment]
-  VITE_API_URL = "https://gudangmitra-production.up.railway.app"
+  VITE_API_URL = "https://gudangmitra-production.up.railway.app/api"
 
 # Redirect all routes to index.html for SPA routing
 [[redirects]]
