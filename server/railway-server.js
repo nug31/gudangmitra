@@ -1803,33 +1803,33 @@ app.get("/api/dashboard/stats", async (req, res) => {
 
     const dashboardStats = {
       // User statistics
-      totalUsers: userStats[0].total_users,
+      totalUsers: parseInt(userStats[0].total_users) || 0,
       usersByRole: {
-        admin: userStats[0].admin_count,
-        manager: userStats[0].manager_count,
-        user: userStats[0].user_count
+        admin: parseInt(userStats[0].admin_count) || 0,
+        manager: parseInt(userStats[0].manager_count) || 0,
+        user: parseInt(userStats[0].user_count) || 0
       },
 
       // Item statistics
-      totalItems: itemStats[0].total_items,
-      totalQuantity: parseInt(itemStats[0].total_quantity),
-      lowStockItems: itemStats[0].low_stock_items,
-      totalCategories: categoryStats[0].total_categories,
+      totalItems: parseInt(itemStats[0].total_items) || 0,
+      totalQuantity: parseInt(itemStats[0].total_quantity) || 0,
+      lowStockItems: parseInt(itemStats[0].low_stock_items) || 0,
+      totalCategories: parseInt(categoryStats[0].total_categories) || 0,
 
       // Request statistics
-      totalRequests: requestStats[0].total_requests,
+      totalRequests: parseInt(requestStats[0].total_requests) || 0,
       requestsByStatus: {
-        pending: requestStats[0].pending_count,
-        approved: requestStats[0].approved_count,
-        denied: requestStats[0].denied_count,
-        fulfilled: requestStats[0].fulfilled_count
+        pending: parseInt(requestStats[0].pending_count) || 0,
+        approved: parseInt(requestStats[0].approved_count) || 0,
+        denied: parseInt(requestStats[0].denied_count) || 0,
+        fulfilled: parseInt(requestStats[0].fulfilled_count) || 0
       },
-      recentRequests: recentRequests[0].recent_count,
+      recentRequests: parseInt(recentRequests[0].recent_count) || 0,
 
       // Top requested items
       topRequestedItems: topItems.map(item => ({
         name: item.name,
-        totalRequested: parseInt(item.total_requested)
+        totalRequested: parseInt(item.total_requested) || 0
       })),
 
       // Recent activity
@@ -1868,11 +1868,11 @@ app.get("/api/dashboard/users", async (req, res) => {
     `);
 
     res.json({
-      totalUsers: userStats[0].total_users,
+      totalUsers: parseInt(userStats[0].total_users) || 0,
       usersByRole: {
-        admin: userStats[0].admin_count,
-        manager: userStats[0].manager_count,
-        user: userStats[0].user_count
+        admin: parseInt(userStats[0].admin_count) || 0,
+        manager: parseInt(userStats[0].manager_count) || 0,
+        user: parseInt(userStats[0].user_count) || 0
       }
     });
   } catch (error) {
@@ -1897,10 +1897,10 @@ app.get("/api/dashboard/items", async (req, res) => {
     `);
 
     res.json({
-      totalItems: itemStats[0].total_items,
-      totalQuantity: parseInt(itemStats[0].total_quantity),
-      lowStockItems: itemStats[0].low_stock_items,
-      totalCategories: categoryStats[0].total_categories
+      totalItems: parseInt(itemStats[0].total_items) || 0,
+      totalQuantity: parseInt(itemStats[0].total_quantity) || 0,
+      lowStockItems: parseInt(itemStats[0].low_stock_items) || 0,
+      totalCategories: parseInt(categoryStats[0].total_categories) || 0
     });
   } catch (error) {
     console.error("Error fetching item stats:", error);
@@ -1928,14 +1928,14 @@ app.get("/api/dashboard/requests", async (req, res) => {
     `);
 
     res.json({
-      totalRequests: requestStats[0].total_requests,
+      totalRequests: parseInt(requestStats[0].total_requests) || 0,
       requestsByStatus: {
-        pending: requestStats[0].pending_count,
-        approved: requestStats[0].approved_count,
-        denied: requestStats[0].denied_count,
-        fulfilled: requestStats[0].fulfilled_count
+        pending: parseInt(requestStats[0].pending_count) || 0,
+        approved: parseInt(requestStats[0].approved_count) || 0,
+        denied: parseInt(requestStats[0].denied_count) || 0,
+        fulfilled: parseInt(requestStats[0].fulfilled_count) || 0
       },
-      recentRequests: recentRequests[0].recent_count
+      recentRequests: parseInt(recentRequests[0].recent_count) || 0
     });
   } catch (error) {
     console.error("Error fetching request stats:", error);
@@ -1960,7 +1960,7 @@ app.get("/api/dashboard/top-items", async (req, res) => {
 
     res.json(topItems.map(item => ({
       name: item.name,
-      totalRequested: parseInt(item.total_requested)
+      totalRequested: parseInt(item.total_requested) || 0
     })));
   } catch (error) {
     console.error("Error fetching top items:", error);
@@ -2067,19 +2067,19 @@ app.get("/api/dashboard/user/:userId", async (req, res) => {
 
     const userDashboardStats = {
       myRequests: {
-        total: userRequestStats[0].total_requests,
-        pending: userRequestStats[0].pending_count,
-        approved: userRequestStats[0].approved_count,
-        denied: userRequestStats[0].denied_count,
-        fulfilled: userRequestStats[0].fulfilled_count
+        total: parseInt(userRequestStats[0].total_requests) || 0,
+        pending: parseInt(userRequestStats[0].pending_count) || 0,
+        approved: parseInt(userRequestStats[0].approved_count) || 0,
+        denied: parseInt(userRequestStats[0].denied_count) || 0,
+        fulfilled: parseInt(userRequestStats[0].fulfilled_count) || 0
       },
-      recentRequests: recentUserRequests[0].recent_count,
+      recentRequests: parseInt(recentUserRequests[0].recent_count) || 0,
       myTopRequestedItems: userTopItems.map(item => ({
         name: item.name,
-        totalRequested: parseInt(item.total_requested)
+        totalRequested: parseInt(item.total_requested) || 0
       })),
-      availableItems: availableItems[0].available_items,
-      availableCategories: availableCategories[0].available_categories,
+      availableItems: parseInt(availableItems[0].available_items) || 0,
+      availableCategories: parseInt(availableCategories[0].available_categories) || 0,
       myRecentActivity: userRecentActivity.map(activity => ({
         id: activity.id.toString(),
         type: activity.type,
