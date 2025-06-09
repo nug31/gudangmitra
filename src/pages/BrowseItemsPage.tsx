@@ -271,26 +271,25 @@ const BrowseItemsPage: React.FC = () => {
                 {isAuthenticated &&
                   item.status !== "out-of-stock" &&
                   item.quantity > 0 && (
-                    <div className="mt-4 space-y-2">
-                      {/* Regular Request Button */}
-                      <Button
-                        variant="primary"
-                        fullWidth
-                        onClick={() => setSelectedItem(item)}
-                        icon={<ShoppingCart className="h-4 w-4" />}
-                      >
-                        Request
-                      </Button>
-
-                      {/* Borrow Button for Electronics */}
-                      {item.category.toLowerCase() === 'electronics' && (
+                    <div className="mt-4">
+                      {/* Show Borrow button for Electronics, Request button for others */}
+                      {item.category.toLowerCase() === 'electronics' ? (
                         <Button
-                          variant="outline"
+                          variant="primary"
                           fullWidth
                           onClick={() => setSelectedBorrowItem(item)}
                           icon={<Calendar className="h-4 w-4" />}
                         >
                           Borrow
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="primary"
+                          fullWidth
+                          onClick={() => setSelectedItem(item)}
+                          icon={<ShoppingCart className="h-4 w-4" />}
+                        >
+                          Request
                         </Button>
                       )}
                     </div>
