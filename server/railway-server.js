@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const mysql = require("mysql2/promise");
+// Load environment variables
+require('dotenv').config({ path: '.env.production' });
 // OpenAI removed - using mock data only
 
 // Database configuration directly from environment variables
@@ -30,7 +32,12 @@ const PORT = process.env.PORT || 3002;
 
 // Middleware
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://gudang-mitra-app.netlify.app',
+    process.env.CORS_ORIGIN
+  ].filter(Boolean),
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   credentials: true
 }));
@@ -172,24 +179,48 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// Get all items
+// Get all items (with /api prefix)
 app.get("/api/items", async (req, res) => {
   try {
     console.log("GET /api/items - Fetching all items");
 
-    const [items] = await pool.query("SELECT * FROM items");
+    // First check if items table exists
+    const [tableCheck] = await pool.query("SHOW TABLES LIKE 'items'");
+    if (tableCheck.length === 0) {
+      console.log("Items table does not exist");
+      return res.json([]);
+    }
 
-    const formattedItems = items.map(item => ({
+    // Get all items
+    const [items] = await pool.query("SELECT * FROM items");
+    console.log(`Found ${items.length} items in database`);
+
+    // Check if isActive column exists
+    const [columns] = await pool.query("DESCRIBE items");
+    const hasIsActive = columns.some(col => col.Field === 'isActive');
+    const hasBorrowedQuantity = columns.some(col => col.Field === 'borrowed_quantity');
+    console.log(`Has isActive column: ${hasIsActive}, Has borrowed_quantity: ${hasBorrowedQuantity}`);
+
+    // Filter active items if isActive column exists
+    let activeItems = items;
+    if (hasIsActive) {
+      activeItems = items.filter(item => item.isActive === 1 || item.isActive === null);
+      console.log(`Active items: ${activeItems.length}`);
+    }
+
+    const formattedItems = activeItems.map(item => ({
       id: item.id.toString(),
       name: item.name || "Unknown Item",
       description: item.description || "",
       category: item.category || "Other",
       quantity: typeof item.quantity === "number" ? item.quantity : 0,
       minQuantity: typeof item.minQuantity === "number" ? item.minQuantity : 0,
+      borrowedQuantity: hasBorrowedQuantity && typeof item.borrowed_quantity === "number" ? item.borrowed_quantity : 0,
       status: item.quantity > 0 ? (item.quantity <= item.minQuantity ? "low-stock" : "in-stock") : "out-of-stock",
       price: item.price || 0,
     }));
 
+    console.log(`Returning ${formattedItems.length} formatted items`);
     res.json(formattedItems);
   } catch (error) {
     console.error("Error fetching items:", error);
@@ -413,6 +444,83 @@ app.delete("/api/items/:id", async (req, res) => {
         error: error.message,
       });
     }
+  }
+});
+
+// Get all items (without /api prefix for Vite proxy)
+app.get("/items", async (req, res) => {
+  try {
+    console.log("GET /items - Fetching all items (proxy)");
+
+    // First check if items table exists
+    const [tableCheck] = await pool.query("SHOW TABLES LIKE 'items'");
+    if (tableCheck.length === 0) {
+      console.log("Items table does not exist");
+      return res.json([]);
+    }
+
+    // Get all items
+    const [items] = await pool.query("SELECT * FROM items");
+    console.log(`Found ${items.length} items in database`);
+
+    // Check if isActive column exists
+    const [columns] = await pool.query("DESCRIBE items");
+    const hasIsActive = columns.some(col => col.Field === 'isActive');
+    const hasBorrowedQuantity = columns.some(col => col.Field === 'borrowed_quantity');
+    console.log(`Has isActive column: ${hasIsActive}, Has borrowed_quantity: ${hasBorrowedQuantity}`);
+
+    // Filter active items if isActive column exists
+    let activeItems = items;
+    if (hasIsActive) {
+      activeItems = items.filter(item => item.isActive === 1 || item.isActive === null);
+      console.log(`Active items: ${activeItems.length}`);
+    }
+
+    const formattedItems = activeItems.map(item => ({
+      id: item.id.toString(),
+      name: item.name || "Unknown Item",
+      description: item.description || "",
+      category: item.category || "Other",
+      quantity: typeof item.quantity === "number" ? item.quantity : 0,
+      minQuantity: typeof item.minQuantity === "number" ? item.minQuantity : 0,
+      borrowedQuantity: hasBorrowedQuantity && typeof item.borrowed_quantity === "number" ? item.borrowed_quantity : 0,
+      status: item.quantity > 0 ? (item.quantity <= item.minQuantity ? "low-stock" : "in-stock") : "out-of-stock",
+      price: item.price || 0,
+    }));
+
+    console.log(`Returning ${formattedItems.length} formatted items`);
+    res.json(formattedItems);
+  } catch (error) {
+    console.error("Error fetching items:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching items",
+      error: error.message,
+    });
+  }
+});
+
+// Get unique categories (without /api prefix for Vite proxy)
+app.get("/categories", async (req, res) => {
+  try {
+    console.log("GET /categories - Fetching unique categories (proxy)");
+
+    const [rows] = await pool.query("SELECT DISTINCT category FROM items WHERE category IS NOT NULL ORDER BY category");
+
+    const categories = rows.map(row => row.category);
+    console.log(`Found categories:`, categories);
+
+    res.json({
+      success: true,
+      categories: categories
+    });
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching categories",
+      error: error.message,
+    });
   }
 });
 

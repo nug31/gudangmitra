@@ -13,7 +13,6 @@ import {
   ShoppingBag,
   Package,
   ShoppingCart,
-  Calendar,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { itemService } from "../services/itemService";
@@ -22,7 +21,6 @@ import { API_BASE_URL } from "../config";
 import Alert from "../components/ui/Alert";
 import { Link } from "react-router-dom";
 import RequestItemModal from "../components/requests/RequestItemModal";
-import BorrowItemModal from "../components/loans/BorrowItemModal";
 import { normalizeCategory, categoriesAreEqual } from "../utils/categoryUtils";
 
 const BrowseItemsPage: React.FC = () => {
@@ -33,7 +31,6 @@ const BrowseItemsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  const [selectedBorrowItem, setSelectedBorrowItem] = useState<Item | null>(null);
   const [items, setItems] = useState<Item[]>([]);
 
   useEffect(() => {
@@ -272,26 +269,14 @@ const BrowseItemsPage: React.FC = () => {
                   item.status !== "out-of-stock" &&
                   item.quantity > 0 && (
                     <div className="mt-4">
-                      {/* Show Borrow button for Electronics, Request button for others */}
-                      {item.category.toLowerCase() === 'electronics' ? (
-                        <Button
-                          variant="primary"
-                          fullWidth
-                          onClick={() => setSelectedBorrowItem(item)}
-                          icon={<Calendar className="h-4 w-4" />}
-                        >
-                          Borrow
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="primary"
-                          fullWidth
-                          onClick={() => setSelectedItem(item)}
-                          icon={<ShoppingCart className="h-4 w-4" />}
-                        >
-                          Request
-                        </Button>
-                      )}
+                      <Button
+                        variant="primary"
+                        fullWidth
+                        onClick={() => setSelectedItem(item)}
+                        icon={<ShoppingCart className="h-4 w-4" />}
+                      >
+                        Request
+                      </Button>
                     </div>
                   )}
               </CardContent>
@@ -307,18 +292,6 @@ const BrowseItemsPage: React.FC = () => {
             console.log("Request created:", request);
             // The RequestItemModal will handle navigation automatically
             // No additional logic needed here since modal handles the redirect
-          }}
-        />
-      )}
-
-      {selectedBorrowItem && (
-        <BorrowItemModal
-          item={selectedBorrowItem}
-          onClose={() => setSelectedBorrowItem(null)}
-          onSuccess={() => {
-            console.log("Item borrowed successfully");
-            setSelectedBorrowItem(null);
-            fetchItems(); // Refresh items to update availability
           }}
         />
       )}
