@@ -91,8 +91,17 @@ class LoanService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+        let errorMessage = `HTTP error! Status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          // If we can't parse the error response, use the status code
+          if (response.status === 404) {
+            errorMessage = "Loan system not available. Please ensure the database is set up correctly.";
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const loan: Loan = await response.json();

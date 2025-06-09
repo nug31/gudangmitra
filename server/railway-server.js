@@ -1993,15 +1993,6 @@ app.get("/api/dashboard/user/:userId", async (req, res) => {
   }
 });
 
-// 404 handler (must be after all routes)
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `Route not found: ${req.method} ${req.url}`,
-    timestamp: new Date().toISOString()
-  });
-});
-
 // ===== LOAN MANAGEMENT ENDPOINTS =====
 
 // Get all loans (admin/manager only)
@@ -2316,6 +2307,15 @@ app.get("/api/loans/overdue", async (req, res) => {
 });
 
 // Chat functionality completely removed
+
+// 404 handler (must be after all routes)
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.method} ${req.url}`,
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Error handler (must be last)
 app.use((error, req, res, next) => {

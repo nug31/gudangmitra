@@ -75,15 +75,21 @@ const BorrowItemModal: React.FC<BorrowItemModalProps> = ({
 
     try {
       // Check availability first
-      const isAvailable = await loanService.checkItemAvailability(
-        item.id,
-        formData.quantity
-      );
+      try {
+        const isAvailable = await loanService.checkItemAvailability(
+          item.id,
+          formData.quantity
+        );
 
-      if (!isAvailable) {
-        setError("Item is not available for borrowing in the requested quantity");
-        setLoading(false);
-        return;
+        if (!isAvailable) {
+          setError("Item is not available for borrowing in the requested quantity");
+          setLoading(false);
+          return;
+        }
+      } catch (availabilityError: any) {
+        console.warn("Availability check failed, proceeding with borrow attempt:", availabilityError);
+        // Continue with borrowing even if availability check fails
+        // This handles the case where the loans table doesn't exist yet
       }
 
       const borrowRequest: BorrowRequest = {
