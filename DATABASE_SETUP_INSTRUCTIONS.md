@@ -51,18 +51,34 @@ UPDATE items SET borrowed_quantity = 0 WHERE borrowed_quantity IS NULL;
 
 ## 🚀 How to Run These Commands
 
-### Option 1: Railway Dashboard
+### Option 1: Automated Setup Script (Recommended)
+```bash
+# Navigate to the server directory
+cd server
+
+# Run the automated setup script
+node setup-loan-system.js
+```
+
+This script will:
+- ✅ Create the loans table with all necessary columns
+- ✅ Add all required indexes for performance
+- ✅ Add borrowed_quantity column to items table
+- ✅ Initialize existing items with borrowed_quantity = 0
+- ✅ Verify the setup is working correctly
+
+### Option 2: Railway Dashboard
 1. Go to your Railway project dashboard
 2. Click on your MySQL database
 3. Go to the "Query" tab
 4. Copy and paste each SQL command above
 5. Execute them one by one
 
-### Option 2: MySQL Client
+### Option 3: MySQL Client
 1. Connect to your Railway database using the connection details
 2. Run the SQL commands in your MySQL client
 
-### Option 3: phpMyAdmin (if available)
+### Option 4: phpMyAdmin (if available)
 1. Access phpMyAdmin through Railway
 2. Select your database
 3. Go to SQL tab
